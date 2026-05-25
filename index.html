@@ -601,7 +601,6 @@ function renderBlockList() {
     list.appendChild(row);
   });
 }
-function addBlock() { currentBlocks.push({intoBed:'22:45',bed:'23:00',wake:'07:00'}); renderBlockList(); renderPrediction(); }
 
 // ── Prediction UI ─────────────────────────────────────
 function renderTimeline(blocks) {
@@ -747,6 +746,18 @@ function renderCalendar() {
   }
 }
 
+function getAvgBedTime() {
+  const beds=Object.values(data).flatMap(d=>(d.blocks||[]).filter(b=>!b.noIntoBed&&b.bed).map(b=>{
+    let m=t2m(b.bed); if(m<360) m+=1440; return m;
+  }));
+  if(!beds.length) return {bed:'23:00',intoBed:'22:45',wake:'07:00'};
+  const avgBed=Math.round(beds.reduce((s,v)=>s+v,0)/beds.length)%1440;
+  const avgIntoBed=(avgBed-15+1440)%1440;
+  const wakes=Object.values(data).flatMap(d=>(d.blocks||[]).filter(b=>!b.noIntoBed&&b.wake).map(b=>t2m(b.wake)));
+  const avgWake=wakes.length?Math.round(wakes.reduce((s,v)=>s+v,0)/wakes.length):420;
+  return {bed:m2t(avgBed),intoBed:m2t(avgIntoBed),wake:m2t(avgWake)};
+}
+
 function selectDate(key, d) {
   selDate=key; renderCalendar();
   document.getElementById('panelTitle').textContent=`${curY}年${curM}月${d}日`;
@@ -755,7 +766,10 @@ function selectDate(key, d) {
   const noSleep=!!(rec.noSleep);
   document.getElementById('noSleep').checked=noSleep;
   document.getElementById('sleepBlocks').style.display=noSleep?'none':'block';
-  if(!currentBlocks.length&&!noSleep) currentBlocks=[{type:'night',intoBed:'22:45',bed:'23:00',wake:'07:00'}];
+  if(!currentBlocks.length&&!noSleep){
+    const avg=getAvgBedTime();
+    currentBlocks=[{intoBed:avg.intoBed,bed:avg.bed,wake:avg.wake}];
+  }
   renderBlockList(); renderPrediction();
   const out=rec.outing||{};
   document.getElementById('wentOut').checked=!!out.out;
@@ -767,6 +781,12 @@ function selectDate(key, d) {
   document.getElementById('mensDetail').style.display=mens.on?'block':'none';
   document.getElementById('mensDay').value=mens.day||'1';
   document.getElementById('mensFlow').value=mens.flow||'';
+}
+
+function addBlock() {
+  const avg=getAvgBedTime();
+  currentBlocks.push({intoBed:avg.intoBed,bed:avg.bed,wake:avg.wake});
+  renderBlockList(); renderPrediction();
 }
 
 function saveDay() {
