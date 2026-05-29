@@ -132,7 +132,17 @@ body { font-family: -apple-system,'Hiragino Sans','Hiragino Kaku Gothic ProN',sa
 .analysis-title { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
 .analysis-val { font-size: 16px; font-weight: 600; color: var(--text); }
 .analysis-note { font-size: 11px; color: var(--text3); margin-top: 2px; }
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 20px; font-size: 13px; transition: transform 0.25s ease; z-index: 100; white-space: nowrap; pointer-events: none; }
+.meal-count-btn { background: none; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 14px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; }
+.meal-count-btn.active { background: var(--purple); color: white; border-color: var(--purple); font-weight: 500; }
+.fixed-event-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+.sched-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.sched-item:last-child { border-bottom: none; }
+.sched-time { font-size: 15px; font-weight: 600; color: var(--text); min-width: 52px; flex-shrink: 0; }
+.sched-label { font-size: 13px; color: var(--text); flex: 1; }
+.sched-note { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.sched-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.warn-box { background: var(--amber-light); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: var(--amber); margin-bottom: 6px; }
+.sched-date-label { font-size: 11px; font-weight: 500; color: var(--text3); background: var(--surface2); border-radius: 4px; padding: 3px 8px; margin: 10px 0 4px; display: inline-block; } bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 20px; font-size: 13px; transition: transform 0.25s ease; z-index: 100; white-space: nowrap; pointer-events: none; }
 .toast.show { transform: translateX(-50%) translateY(0); }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 50; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 .modal-overlay.open { opacity: 1; pointer-events: all; }
@@ -258,22 +268,46 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
         <span class="conf-badge" id="confBadge"></span>
       </div>
 
-      <!-- LightGBM予測（就寝時刻） -->
+      <!-- LightGBM予測（翌日就寝時刻） -->
       <div class="pred-section" id="lgbmSection" style="display:none">
-        <div class="pred-section-title">🤖 LightGBM — 次の就寝時刻</div>
+        <div class="pred-section-title">🤖 LightGBM — 翌日の就寝時刻</div>
         <div><span class="lgbm-pred" id="lgbmPred">—</span></div>
         <div class="lgbm-note" id="lgbmNote"></div>
       </div>
 
-      <!-- 統計ベース予測（起床時刻） -->
-      <div class="pred-section">
-        <div class="pred-section-title">📊 統計学習 — 翌日の起床時刻</div>
-        <div><span class="pred-main" id="predMain">—</span><span class="pred-range" id="predRange"></span></div>
-        <div class="pred-note" id="predNote"></div>
-        <div class="pred-factors" id="predFactors"></div>
-        <div id="tlWrap"></div>
-        <div class="model-info" id="modelInfo"></div>
+      <!-- 統計ベース予測（翌朝起床時刻・就寝時刻入力後に表示） -->
+      <div class="pred-section" id="statSection">
+        <div class="pred-section-title">📊 統計学習 — 翌朝の起床時刻</div>
+        <div id="statNoInput" style="font-size:12px;color:var(--text3);padding:4px 0">
+          スケジュールパネルで今夜の就寝時刻を入力すると起床時刻を予測します
+        </div>
+        <div id="statResult" style="display:none">
+          <div><span class="pred-main" id="predMain">—</span><span class="pred-range" id="predRange"></span></div>
+          <div class="pred-note" id="predNote"></div>
+          <div class="pred-factors" id="predFactors"></div>
+          <div class="model-info" id="modelInfo"></div>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <div class="panel" id="schedulePanel" style="display:none">
+    <div class="panel-title">📅 スケジュール <span id="schedDateLabel" style="font-size:13px;font-weight:400;color:var(--text2)"></span></div>
+    <div class="section-title" style="margin-bottom:10px">起床・就寝（予測から自動引用・手動上書き可）</div>
+    <div class="form-row" style="margin-bottom:12px">
+      <div><div class="field-label">起床時刻</div><div id="schedWakeSelect"></div></div>
+      <div><div class="field-label">就寝時刻</div><div id="schedBedSelect"></div></div>
+    </div>
+    <div class="section-title" style="margin-bottom:8px">固定予定</div>
+    <div id="fixedEventList" style="margin-bottom:10px;display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="add-btn" onclick="addFixedEvent()">＋ 固定予定を追加</button>
+      <button class="save-btn" onclick="buildSchedule()">スケジュールを生成</button>
+    </div>
+    <div id="schedResult" style="display:none;margin-top:18px">
+      <div class="section-title" style="margin-bottom:10px">📋 本日のスケジュール</div>
+      <div id="schedWarnings" style="margin-bottom:8px"></div>
+      <div id="schedTimeline"></div>
     </div>
   </div>
 
@@ -621,7 +655,6 @@ function renderTimeline(blocks) {
 
 function renderPrediction() {
   const box=document.getElementById('predBox');
-  const statResult=predictWake(currentBlocks,selDate);
   const dayData=selDate?data[selDate]:null;
   const isOuting=!!(dayData&&dayData.outing&&dayData.outing.out);
   const isMenstrual=!!(dayData&&dayData.menstrual&&dayData.menstrual.on);
@@ -629,37 +662,62 @@ function renderPrediction() {
   const isNextDayOuting=selDate?isPreOutingDay(selDate):false;
   const lgbmResult=predictNextBedTime(currentBlocks, isOuting, isNextDayOuting, isMenstrual, menstrualDay);
 
-  if(!statResult&&lgbmResult===null){box.style.display='none';return;}
-  box.style.display='block';
-
-  // LightGBM予測（就寝時刻）
-  const lgbmSec=document.getElementById('lgbmSection');
-  if(lgbmResult!==null){
+  if(lgbmResult===null){box.style.display='none';}
+  else {
+    box.style.display='block';
+    const lgbmSec=document.getElementById('lgbmSection');
     lgbmSec.style.display='block';
     const predMin=Math.round(lgbmResult)%1440;
     document.getElementById('lgbmPred').textContent=m2t(((predMin%1440)+1440)%1440);
     const nextDayNote=isNextDayOuting?' ／ 翌日外出予定を考慮':'';
     document.getElementById('lgbmNote').textContent='あなたの過去データから学習したLightGBMモデルによる予測です。'+nextDayNote;
-  } else {
-    lgbmSec.style.display='none';
+    // LightGBMの予測値をスケジュールパネルの就寝時刻に反映
+    schedBedMin=predMin;
+    const bedWrap=document.getElementById('schedBedSelect');
+    if(bedWrap&&bedWrap.children.length){
+      bedWrap.innerHTML='';
+      bedWrap.appendChild(makeTimeSelect(m2t(schedBedMin),v=>{schedBedMin=t2m(v);updateStatPrediction();}));
+    }
   }
+  // 統計学習はスケジュールパネルに一本化
+  document.getElementById('statSection').style.display='block';
+  updateStatPrediction();
+}
 
-  // 統計ベース予測（起床時刻）
-  if(statResult){
-    document.getElementById('predMain').textContent=m2t(statResult.predM);
-    const rm=Math.round(statResult.stdDev*0.7);
-    document.getElementById('predRange').textContent=`（${m2t((statResult.predM-rm+1440)%1440)} 〜 ${m2t((statResult.predM+rm+1440)%1440)}）`;
-    const confMap={high:{cls:'conf-high',txt:'精度 高'},medium:{cls:'conf-med',txt:'精度 中'},low:{cls:'conf-low',txt:'精度 低（学習中）'}};
-    const badge=document.getElementById('confBadge'); badge.className='conf-badge '+confMap[statResult.confidence].cls; badge.textContent=confMap[statResult.confidence].txt;
-    const last=lastMainBlock(currentBlocks);
-    document.getElementById('predNote').textContent=`就寝 ${last.bed} ＋ 入眠15分 ＋ 学習済み睡眠 ${(statResult.sleepDuration/60).toFixed(1)}h`;
-    const pf=document.getElementById('predFactors'); pf.innerHTML='';
-    statResult.factors.forEach(f=>{const s=document.createElement('span');s.className=`factor-badge factor-${f.type}`;s.textContent=f.label;pf.appendChild(s);});
-    renderTimeline(currentBlocks);
-    const mi=document.getElementById('modelInfo');
-    if(statResult.source.type==='learned')mi.textContent=`過去${statResult.source.n}日から学習 ／ 平均 ${statResult.source.avg}h ／ ばらつき ±${statResult.source.std}分`;
-    else if(statResult.source.type==='partial')mi.textContent=`${statResult.source.n}日分で学習中（3日以上で精度が上がります）`;
-    else mi.textContent='記録を続けると睡眠パターンを学習します。';
+function updateStatPrediction() {
+  if(schedBedMin===null){
+    document.getElementById('statNoInput').style.display='block';
+    document.getElementById('statResult').style.display='none';
+    return;
+  }
+  // schedBedMinを就寝時刻として統計予測を計算
+  const fakeBlock=[{intoBed:null,noIntoBed:true,bed:m2t(schedBedMin),wake:m2t((schedBedMin+480)%1440)}];
+  const statResult=predictWake(fakeBlock,selDate);
+  if(!statResult){
+    document.getElementById('statNoInput').style.display='block';
+    document.getElementById('statResult').style.display='none';
+    return;
+  }
+  document.getElementById('statNoInput').style.display='none';
+  document.getElementById('statResult').style.display='block';
+  document.getElementById('predMain').textContent=m2t(statResult.predM);
+  const rm=Math.round(statResult.stdDev*0.7);
+  document.getElementById('predRange').textContent=`（${m2t((statResult.predM-rm+1440)%1440)} 〜 ${m2t((statResult.predM+rm+1440)%1440)}）`;
+  const confMap={high:{cls:'conf-high',txt:'精度 高'},medium:{cls:'conf-med',txt:'精度 中'},low:{cls:'conf-low',txt:'精度 低（学習中）'}};
+  const badge=document.getElementById('confBadge');badge.className='conf-badge '+confMap[statResult.confidence].cls;badge.textContent=confMap[statResult.confidence].txt;
+  document.getElementById('predNote').textContent=`就寝 ${m2t(schedBedMin)} ＋ 入眠15分 ＋ 学習済み睡眠 ${(statResult.sleepDuration/60).toFixed(1)}h`;
+  const pf=document.getElementById('predFactors');pf.innerHTML='';
+  statResult.factors.forEach(f=>{const s=document.createElement('span');s.className=`factor-badge factor-${f.type}`;s.textContent=f.label;pf.appendChild(s);});
+  const mi=document.getElementById('modelInfo');
+  if(statResult.source.type==='learned')mi.textContent=`過去${statResult.source.n}日から学習 ／ 平均 ${statResult.source.avg}h ／ ばらつき ±${statResult.source.std}分`;
+  else if(statResult.source.type==='partial')mi.textContent=`${statResult.source.n}日分で学習中（3日以上で精度が上がります）`;
+  else mi.textContent='記録を続けると睡眠パターンを学習します。';
+  // スケジュールの起床欄も更新
+  const wakeWrap=document.getElementById('schedWakeSelect');
+  if(wakeWrap&&wakeWrap.children.length){
+    schedWakeMin=statResult.predM;
+    wakeWrap.innerHTML='';
+    wakeWrap.appendChild(makeTimeSelect(m2t(schedWakeMin),v=>{schedWakeMin=t2m(v);}));
   }
 }
 
@@ -781,6 +839,10 @@ function selectDate(key, d) {
   document.getElementById('mensDetail').style.display=mens.on?'block':'none';
   document.getElementById('mensDay').value=mens.day||'1';
   document.getElementById('mensFlow').value=mens.flow||'';
+  // スケジュールパネル
+  document.getElementById('schedulePanel').style.display='block';
+  document.getElementById('schedDateLabel').textContent=`${curY}年${curM}月${d}日`;
+  initSchedulePanel(key);
 }
 
 function addBlock() {
@@ -868,6 +930,196 @@ function updateMenstrualChart() {
     <div class="analysis-card"><div class="analysis-title">生理中 vs 平均</div><div class="analysis-val">${diff!==null?(diff>0?'+':'')+diff+'分':'—'}</div><div class="analysis-note">睡眠時間の差</div></div>`;
   if(mChart) mChart.destroy();
   mChart=new Chart(document.getElementById('mensChart'),{type:'bar',data:{labels:phases.map(p=>names[p]),datasets:[{label:'平均睡眠(h)',data:phases.map(p=>pn[p]?+(ps[p]/pn[p]/60).toFixed(1):null),backgroundColor:['#F4C0D1','#B5D4F4','#9FE1CB','#FAC775'],borderColor:['#D4537E','#378ADD','#1D9E75','#BA7517'],borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'睡眠(h)',font:{size:11}},min:0,max:12,ticks:{font:{size:11}}},x:{ticks:{font:{size:12}}}}}});
+}
+
+
+// ── Schedule ──────────────────────────────────────────
+let schedMealCount = 2;
+let fixedEvents = [];
+let schedWakeMin = null;
+let schedBedMin = null;
+
+function setMealCount(n, btn) {
+  schedMealCount = n;
+  document.querySelectorAll('.meal-count-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addFixedEvent() {
+  fixedEvents.push({ label: '', timeMin: 10 * 60, endTimeMin: 11 * 60 });
+  renderFixedEvents();
+}
+
+function removeFixedEvent(i) {
+  fixedEvents.splice(i, 1);
+  renderFixedEvents();
+}
+
+function renderFixedEvents() {
+  const list = document.getElementById('fixedEventList');
+  list.innerHTML = '';
+  fixedEvents.forEach((ev, i) => {
+    const row = document.createElement('div');
+    row.className = 'fixed-event-row';
+
+    const labelWrap = document.createElement('div');
+    labelWrap.innerHTML = '<div class="field-label">予定名</div>';
+    const labelInput = document.createElement('input');
+    labelInput.type = 'text'; labelInput.value = ev.label;
+    labelInput.placeholder = '例：病院、用事';
+    labelInput.style.cssText = 'width:100%;font-size:13px;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:inherit';
+    labelInput.addEventListener('input', () => { fixedEvents[i].label = labelInput.value; });
+    labelWrap.appendChild(labelInput);
+
+    const startWrap = document.createElement('div');
+    startWrap.innerHTML = '<div class="field-label">開始</div>';
+    startWrap.appendChild(makeTimeSelect(m2t(ev.timeMin), v => {
+      fixedEvents[i].timeMin = t2m(v);
+      // 終了が開始より前になっていたら1時間後に自動調整
+      if (fixedEvents[i].endTimeMin <= fixedEvents[i].timeMin) {
+        fixedEvents[i].endTimeMin = fixedEvents[i].timeMin + 60;
+        renderFixedEvents();
+      }
+    }));
+
+    const endWrap = document.createElement('div');
+    endWrap.innerHTML = '<div class="field-label">終了</div>';
+    endWrap.appendChild(makeTimeSelect(m2t(ev.endTimeMin || ev.timeMin + 60), v => {
+      fixedEvents[i].endTimeMin = t2m(v);
+    }));
+
+    const del = document.createElement('button');
+    del.className = 'del-btn'; del.textContent = '✕'; del.title = '削除';
+    del.addEventListener('click', () => removeFixedEvent(i));
+
+    row.appendChild(labelWrap); row.appendChild(startWrap); row.appendChild(endWrap); row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+function initSchedulePanel(dateKey) {
+  const rec = data[dateKey] || {};
+  const blocks = rec.blocks || [];
+  const statResult = predictWake(blocks, dateKey);
+  const lastMain = lastMainBlock(blocks);
+  const dayData = rec;
+  const isOuting = !!(dayData && dayData.outing && dayData.outing.out);
+  const isMenstrual = !!(dayData && dayData.menstrual && dayData.menstrual.on);
+  const menstrualDay = isMenstrual ? (dayData.menstrual.day || 0) : 0;
+  const isNextDayOuting = isPreOutingDay(dateKey);
+
+  // 起床：統計学習の予測値
+  const defaultWake = statResult ? statResult.predM : (lastMain && lastMain.wake ? t2m(lastMain.wake) : 7 * 60);
+  schedWakeMin = defaultWake;
+
+  // 就寝：LightGBMが読み込まれていればその予測値、なければ平均就寝時刻
+  const lgbmResult = predictNextBedTime(blocks, isOuting, isNextDayOuting, isMenstrual, menstrualDay);
+  const avg = getAvgBedTime();
+  schedBedMin = lgbmResult !== null ? Math.round(lgbmResult) % 1440 : t2m(avg.bed);
+
+  const wakeWrap = document.getElementById('schedWakeSelect');
+  wakeWrap.innerHTML = '';
+  wakeWrap.appendChild(makeTimeSelect(m2t(schedWakeMin), v => { schedWakeMin = t2m(v); }));
+  const bedWrap = document.getElementById('schedBedSelect');
+  bedWrap.innerHTML = '';
+  bedWrap.appendChild(makeTimeSelect(m2t(schedBedMin), v => { schedBedMin = t2m(v); updateStatPrediction(); }));
+
+  fixedEvents = [];
+  renderFixedEvents();
+  document.getElementById('schedResult').style.display = 'none';
+}
+
+function buildSchedule() {
+  const warnings = [];
+  const events = [];
+
+  const wakeM = schedWakeMin;
+  const bedM = schedBedMin < wakeM ? schedBedMin + 1440 : schedBedMin;
+
+  // 就床・就寝
+  const intoBedM = bedM - 60; // 就床は就寝1時間前
+  // 服薬 = 就寝1時間前（就床と同時）
+  const medM = intoBedM;
+  // 最終食事の上限 = 服薬2時間前
+  const lastMealDeadline = medM - 120;
+
+  if (lastMealDeadline <= wakeM) {
+    warnings.push('起床から就寝までの時間が短すぎて食事・服薬の制約を満たせません。就寝時刻を遅くするか食事回数を減らしてください。');
+  }
+
+  // イベントリストを構築（食事の自動配置なし・タイムリミットのみ表示）
+  const iconMap = { wake: '🌅', mealLimit: '🍽️', med: '💊', intoBed: '🕯️', sleep: '🛏️', fixed: '📌' };
+  const colorMap = { wake: '#1D9E75', mealLimit: '#BA7517', med: '#D4537E', intoBed: '#534AB7', sleep: '#534AB7', fixed: '#378ADD' };
+  const sortedFixed = [...fixedEvents].sort((a, b) => a.timeMin - b.timeMin);
+
+  events.push({ timeMin: wakeM, label: '起床', type: 'wake', note: '' });
+  sortedFixed.forEach(ev => {
+    const evEnd = ev.endTimeMin || ev.timeMin + 60;
+    const dur = evEnd - ev.timeMin;
+    const durStr = dur >= 60 ? `${Math.floor(dur/60)}時間${dur%60>0?dur%60+'分':''}` : `${dur}分`;
+    events.push({ timeMin: ev.timeMin % 1440, label: ev.label || '固定予定', type: 'fixed', note: `〜${m2t(evEnd % 1440)}（${durStr}）` });
+  });
+  events.push({ timeMin: lastMealDeadline % 1440, label: '食事タイムリミット', type: 'mealLimit', note: 'これ以降に食事をすると服薬が遅れます' });
+  events.push({ timeMin: medM % 1440, label: '服薬', type: 'med', note: '就寝1時間前・食後2時間以上' });
+  events.push({ timeMin: intoBedM % 1440, label: '就床', type: 'intoBed', note: '' });
+  events.push({ timeMin: bedM % 1440, label: '就寝', type: 'sleep', note: '' });
+
+  // 時刻順にソート（日をまたぐ考慮）、絶対分で管理
+  const wDays = ['日','月','火','水','木','金','土'];
+  function toAbsMin(m) { return m < wakeM - 30 ? m + 1440 : m; }
+  events.forEach(ev => { ev.absMin = toAbsMin(ev.timeMin); });
+  events.sort((a, b) => a.absMin - b.absMin);
+
+  // 基準日
+  const baseDate = selDate ? new Date(selDate + 'T00:00:00') : new Date();
+
+  // 警告表示
+  const warnDiv = document.getElementById('schedWarnings');
+  warnDiv.innerHTML = warnings.map(w => `<div class="warn-box">⚠️ ${w}</div>`).join('');
+
+  // タイムライン表示（日付ラベルを挟む）
+  const tl = document.getElementById('schedTimeline');
+  tl.innerHTML = '';
+  let currentDay = -1;
+  events.forEach(ev => {
+    const dayOffset = Math.floor(ev.absMin / 1440);
+    if (dayOffset !== currentDay) {
+      currentDay = dayOffset;
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + dayOffset);
+      const label = document.createElement('div');
+      label.className = 'sched-date-label';
+      label.textContent = `${d.getMonth()+1}月${d.getDate()}日（${wDays[d.getDay()]}）`;
+      tl.appendChild(label);
+    }
+    const item = document.createElement('div');
+    item.className = 'sched-item';
+    const icon = document.createElement('div');
+    icon.className = 'sched-icon';
+    icon.style.background = colorMap[ev.type] + '22';
+    icon.textContent = iconMap[ev.type];
+    const body = document.createElement('div');
+    body.style.flex = '1';
+    const timeEl = document.createElement('div');
+    timeEl.className = 'sched-time';
+    timeEl.textContent = m2t(ev.timeMin);
+    const labelEl = document.createElement('div');
+    labelEl.className = 'sched-label';
+    labelEl.textContent = ev.label;
+    body.appendChild(timeEl);
+    body.appendChild(labelEl);
+    if (ev.note) {
+      const noteEl = document.createElement('div');
+      noteEl.className = 'sched-note';
+      noteEl.textContent = ev.note;
+      body.appendChild(noteEl);
+    }
+    item.appendChild(icon);
+    item.appendChild(body);
+    tl.appendChild(item);
+  });
+
+  document.getElementById('schedResult').style.display = 'block';
 }
 
 // ── Modal / Toast / Export / Import ───────────────────
