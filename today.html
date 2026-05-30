@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="今日">
+<title>今日の予定</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #222222;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0ede8;
+  --text2: #888480;
+  --text3: #555250;
+  --accent: #c8b89a;
+  --accent2: #7fa8c9;
+  --green: #7fc9a8;
+  --amber: #c9a87f;
+  --pink: #c97fa8;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); overflow: hidden; }
+body {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* ── Clock ── */
+.clock-section {
+  padding: 48px 28px 24px;
+  flex-shrink: 0;
+}
+.time-display {
+  font-family: 'DM Mono', monospace;
+  font-size: clamp(64px, 18vw, 96px);
+  font-weight: 300;
+  letter-spacing: -2px;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.time-display .seconds {
+  font-size: 0.45em;
+  color: var(--text3);
+  vertical-align: super;
+  margin-left: 2px;
+}
+.date-display {
+  font-size: 14px;
+  color: var(--text2);
+  letter-spacing: 0.5px;
+  font-weight: 300;
+}
+
+/* ── Next event ── */
+.next-section {
+  margin: 0 20px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.next-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  opacity: 0.6;
+}
+.next-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 8px;
+  font-family: 'DM Mono', monospace;
+}
+.next-event-name {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.next-event-icon { font-size: 20px; }
+.countdown {
+  font-family: 'DM Mono', monospace;
+  font-size: clamp(32px, 9vw, 48px);
+  font-weight: 300;
+  color: var(--accent);
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.countdown.urgent { color: var(--pink); animation: pulse 1s ease-in-out infinite; }
+.countdown.soon { color: var(--amber); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+.next-at {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 4px;
+  font-family: 'DM Mono', monospace;
+}
+.no-event {
+  font-size: 15px;
+  color: var(--text3);
+  font-style: italic;
+}
+
+/* ── Schedule list ── */
+.sched-section {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 32px;
+  -webkit-overflow-scrolling: touch;
+}
+.sched-section::-webkit-scrollbar { display: none; }
+.sched-day-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  margin: 16px 0 8px;
+}
+.sched-day-label:first-child { margin-top: 0; }
+.sched-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.3s;
+}
+.sched-item:last-child { border-bottom: none; }
+.sched-item.past { opacity: 0.3; }
+.sched-item.current {
+  opacity: 1;
+}
+.sched-item.current .sched-item-name {
+  color: var(--accent);
+}
+.sched-icon-wrap {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.sched-item.current .sched-icon-wrap {
+  background: rgba(200,184,154,0.15);
+}
+.sched-item-body { flex: 1; min-width: 0; }
+.sched-item-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--text3);
+  margin-bottom: 1px;
+}
+.sched-item-name {
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sched-item-note {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 1px;
+}
+.sched-item-remain {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.sched-item.current .sched-item-remain { color: var(--accent); }
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text3);
+  text-align: center;
+  padding: 20px;
+}
+.empty-state .empty-icon { font-size: 40px; opacity: 0.4; }
+.empty-state .empty-title { font-size: 15px; }
+.empty-state .empty-desc { font-size: 13px; line-height: 1.6; }
+.empty-state a {
+  color: var(--accent2);
+  font-size: 13px;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(127,168,201,0.3);
+}
+
+/* ── Bottom bar ── */
+.bottom-bar {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.bottom-link {
+  font-size: 12px;
+  color: var(--text3);
+  text-decoration: none;
+  font-family: 'DM Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bottom-link:hover { color: var(--text2); }
+.sync-status {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+}
+.sync-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 4px;
+  animation: blink 3s ease-in-out infinite;
+}
+.sync-dot.off { background: var(--text3); animation: none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── Manual input modal ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 24px 20px 40px;
+  width: 100%; max-width: 520px;
+  transform: translateY(20px); transition: transform 0.2s;
+  border-top: 1px solid var(--border);
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-title {
+  font-size: 16px; font-weight: 500;
+  margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-close {
+  background: none; border: none; color: var(--text3);
+  font-size: 20px; cursor: pointer; padding: 4px;
+}
+.modal-desc { font-size: 13px; color: var(--text3); line-height: 1.6; margin-bottom: 16px; }
+.event-input-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.event-input-row { display: grid; grid-template-columns: 80px 1fr auto; gap: 8px; align-items: center; }
+.time-input {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px; padding: 8px 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  width: 100%;
+}
+.name-input {
+  font-size: 14px; padding: 8px 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  width: 100%; font-family: inherit;
+}
+.time-input:focus, .name-input:focus { outline: none; border-color: var(--accent2); }
+.del-btn-modal {
+  background: none; border: none; color: var(--text3);
+  font-size: 18px; cursor: pointer; padding: 4px;
+}
+.modal-btn-row { display: flex; gap: 8px; }
+.modal-btn {
+  flex: 1; padding: 10px; border-radius: var(--radius-sm);
+  font-size: 14px; cursor: pointer; font-family: inherit;
+  border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+}
+.modal-btn.primary { background: var(--accent); color: #0f0f0f; border-color: var(--accent); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="clock-section">
+  <div class="time-display" id="clockDisplay">
+    <span id="clockHM">00:00</span><span class="seconds" id="clockS">00</span>
+  </div>
+  <div class="date-display" id="dateDisplay"></div>
+</div>
+
+<div class="next-section" id="nextSection">
+  <div class="next-label">NEXT</div>
+  <div id="nextContent"><div class="no-event">予定を読み込み中...</div></div>
+</div>
+
+<div class="sched-section" id="schedSection"></div>
+
+<div class="bottom-bar">
+  <a href="index.html" class="bottom-link">← 睡眠カレンダー</a>
+  <div>
+    <button class="bottom-link" onclick="openManual()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-family:'DM Mono',monospace;font-size:12px">＋ 手動追加</button>
+  </div>
+  <div class="sync-status">
+    <span class="sync-dot" id="syncDot"></span>
+    <span id="syncLabel">同期中</span>
+  </div>
+</div>
+
+<!-- Manual event modal -->
+<div class="modal-overlay" id="manualModal">
+  <div class="modal">
+    <div class="modal-title">
+      手動で予定を追加
+      <button class="modal-close" onclick="closeManual()">×</button>
+    </div>
+    <div class="modal-desc">睡眠カレンダーのスケジュール以外に追加したい予定を入力してください。今日限りの予定です。</div>
+    <div class="event-input-list" id="manualList"></div>
+    <div style="margin-bottom:16px">
+      <button class="modal-btn" onclick="addManualRow()" style="width:100%">＋ 追加</button>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="closeManual()">キャンセル</button>
+      <button class="modal-btn primary" onclick="saveManual()">保存して反映</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'sleep-calendar-v1';
+const SCHED_KEY = 'today-manual-events';
+const wDays = ['日','月','火','水','木','金','土'];
+
+let todayEvents = [];
+let manualEvents = [];
+let timerRef = null;
+
+function pad(n) { return String(n).padStart(2,'0'); }
+function t2m(t) { if(!t) return null; const[h,mn]=t.split(':').map(Number); return h*60+mn; }
+function m2t(m) { m=((m%1440)+1440)%1440; return `${pad(Math.floor(m/60))}:${pad(m%60)}`; }
+function dur(a,b){let d=b-a;if(d<0)d+=1440;return d;}
+
+function todayKey() {
+  const d=new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function tomorrowKey() {
+  const d=new Date(); d.setDate(d.getDate()+1);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+// スケジュールデータを睡眠カレンダーのlocalStorageから読み込む
+function loadFromCalendar() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function buildEventsFromSched(schedItems, baseAbsMin) {
+  // schedItemsはbuildScheduleで生成されたイベント配列を想定
+  // ここではlocalStorageに保存されたスケジュール結果を使う
+  return schedItems;
+}
+
+// 今日・明日のスケジュールをlocalStorageから構築
+function buildTodayEvents() {
+  const data = loadFromCalendar();
+  const events = [];
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  // 手動追加イベント
+  const manual = loadManualEvents();
+  manual.forEach(ev => {
+    if (ev.time && ev.name) {
+      events.push({
+        absMin: t2m(ev.time) < nowMin - 120 ? t2m(ev.time) + 1440 : t2m(ev.time),
+        timeMin: t2m(ev.time),
+        label: ev.name,
+        icon: '📌',
+        note: '',
+        manual: true
+      });
+    }
+  });
+
+  if (!data) return events.sort((a,b)=>a.absMin-b.absMin);
+
+  // 今日・明日のスケジュールデータを探す
+  [todayKey(), tomorrowKey()].forEach((key, dayOffset) => {
+    const rec = data[key];
+    if (!rec || !rec.schedResult) return;
+    rec.schedResult.forEach(ev => {
+      let absMin = ev.timeMin + dayOffset * 1440;
+      // 深夜0〜6時のイベントは翌日扱い
+      if (dayOffset === 0 && ev.timeMin < 360 && nowMin > 360) absMin += 1440;
+      events.push({ ...ev, absMin, dayOffset });
+    });
+  });
+
+  return events.sort((a,b) => a.absMin - b.absMin);
+}
+
+function loadManualEvents() {
+  try {
+    const raw = localStorage.getItem(SCHED_KEY);
+    if (!raw) return [];
+    const saved = JSON.parse(raw);
+    // 今日分だけ
+    if (saved.date === todayKey()) return saved.events || [];
+    return [];
+  } catch(e) { return []; }
+}
+
+function saveManualEventsToStorage(evs) {
+  localStorage.setItem(SCHED_KEY, JSON.stringify({ date: todayKey(), events: evs }));
+}
+
+// 残り時間を文字列に
+function remainStr(diffMin) {
+  const absMin = Math.abs(diffMin);
+  if (absMin < 1) return 'まもなく';
+  const h = Math.floor(absMin / 60);
+  const m = absMin % 60;
+  if (h === 0) return `${m}分`;
+  if (m === 0) return `${h}時間`;
+  return `${h}時間${m}分`;
+}
+
+// カレンダーからスケジュールが見つからない場合のフォールバック
+// 今夜の予測パネルのデータをlocalStorageから引っ張る試み
+function tryLoadTonightData() {
+  const data = loadFromCalendar();
+  if (!data) return [];
+  const events = [];
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  // 今日・明日のデータを探す
+  [todayKey(), tomorrowKey()].forEach((key, di) => {
+    const rec = data[key];
+    if (!rec || !rec.blocks) return;
+
+    // メイン睡眠ブロックから就床・就寝・起床を取得
+    const mainBlocks = (rec.blocks || []).filter(b => !b.noIntoBed && b.bed && b.wake);
+    mainBlocks.forEach(b => {
+      const bedM = t2m(b.bed);
+      const wakeM = t2m(b.wake);
+      const intoBedM = b.intoBed ? t2m(b.intoBed) : null;
+
+      if (intoBedM !== null) {
+        let absM = intoBedM + di * 1440;
+        if (di === 0 && intoBedM < nowMin - 120) absM += 1440;
+        events.push({ absMin: absM, timeMin: intoBedM, label: '就床・服薬', icon: '🕯️', note: '' });
+      }
+      {
+        let absM = bedM + di * 1440;
+        if (di === 0 && bedM < nowMin - 120) absM += 1440;
+        events.push({ absMin: absM, timeMin: bedM, label: '就寝', icon: '🛏️', note: '' });
+      }
+      {
+        let absM = wakeM + di * 1440;
+        if (wakeM < bedM) absM += 1440;
+        if (di === 0 && wakeM < nowMin - 120) absM += 1440;
+        events.push({ absMin: absM, timeMin: wakeM, label: '起床', icon: '🌅', note: '' });
+      }
+    });
+  });
+
+  return events.sort((a,b) => a.absMin - b.absMin);
+}
+
+function updateClock() {
+  const now = new Date();
+  const h = pad(now.getHours());
+  const m = pad(now.getMinutes());
+  const s = pad(now.getSeconds());
+  document.getElementById('clockHM').textContent = `${h}:${m}`;
+  document.getElementById('clockS').textContent = s;
+
+  const dayNames = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
+  document.getElementById('dateDisplay').textContent =
+    `${dayNames[now.getDay()]} ${now.getMonth()+1}月${now.getDate()}日`;
+
+  updateScheduleDisplay(now);
+}
+
+function updateScheduleDisplay(now) {
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowAbsMin = nowMin; // 今日の分単位（0〜1439）
+
+  // イベント一覧を再構築（手動追加も含む）
+  const allEvents = buildTodayEvents().length > 0
+    ? buildTodayEvents()
+    : tryLoadTonightData().concat(loadManualEvents().map(ev => ({
+        absMin: t2m(ev.time) < nowMin - 120 ? t2m(ev.time) + 1440 : t2m(ev.time),
+        timeMin: t2m(ev.time), label: ev.name, icon: '📌', note: '', manual: true
+      }))).sort((a,b) => a.absMin - b.absMin);
+
+  // 次のイベントを見つける
+  const upcoming = allEvents.filter(ev => ev.absMin > nowAbsMin);
+  const nextEv = upcoming[0] || null;
+
+  // Next section
+  const nextContent = document.getElementById('nextContent');
+  if (!nextEv) {
+    nextContent.innerHTML = '<div class="no-event">今日の予定はすべて終わりました</div>';
+  } else {
+    const diffMin = nextEv.absMin - nowAbsMin;
+    const isUrgent = diffMin <= 15;
+    const isSoon = diffMin <= 60;
+    const cls = isUrgent ? 'urgent' : isSoon ? 'soon' : '';
+    nextContent.innerHTML = `
+      <div class="next-event-name">
+        <span class="next-event-icon">${nextEv.icon}</span>
+        ${nextEv.label}
+      </div>
+      <div class="countdown ${cls}">あと ${remainStr(diffMin)}</div>
+      <div class="next-at">${m2t(nextEv.timeMin)} 予定</div>
+    `;
+  }
+
+  // Schedule list
+  const schedSection = document.getElementById('schedSection');
+  if (allEvents.length === 0) {
+    schedSection.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🌙</div>
+        <div class="empty-title">今日のスケジュールがありません</div>
+        <div class="empty-desc">睡眠カレンダーでスケジュールを生成するか、下の「手動追加」で予定を入力してください。</div>
+        <a href="index.html">睡眠カレンダーを開く →</a>
+      </div>`;
+    document.getElementById('syncDot').className = 'sync-dot off';
+    document.getElementById('syncLabel').textContent = 'データなし';
+    return;
+  }
+
+  document.getElementById('syncDot').className = 'sync-dot';
+  document.getElementById('syncLabel').textContent = '同期済み';
+
+  // 日付ごとにグループ化
+  let lastDayOffset = -1;
+  let html = '';
+  allEvents.forEach(ev => {
+    const dayOffset = Math.floor(ev.absMin / 1440);
+    if (dayOffset !== lastDayOffset) {
+      lastDayOffset = dayOffset;
+      const d = new Date(now);
+      d.setDate(d.getDate() + dayOffset);
+      html += `<div class="sched-day-label">${d.getMonth()+1}月${d.getDate()}日（${wDays[d.getDay()]}）</div>`;
+    }
+    const isPast = ev.absMin < nowAbsMin - 1;
+    const isCurrent = nextEv && ev.absMin === nextEv.absMin;
+    const diffMin = ev.absMin - nowAbsMin;
+    const remainTxt = isPast ? '' : diffMin <= 0 ? 'いま' : `あと${remainStr(diffMin)}`;
+    html += `
+      <div class="sched-item ${isPast?'past':''} ${isCurrent?'current':''}">
+        <div class="sched-icon-wrap">${ev.icon}</div>
+        <div class="sched-item-body">
+          <div class="sched-item-time">${m2t(ev.timeMin)}</div>
+          <div class="sched-item-name">${ev.label}</div>
+          ${ev.note ? `<div class="sched-item-note">${ev.note}</div>` : ''}
+        </div>
+        <div class="sched-item-remain">${remainTxt}</div>
+      </div>`;
+  });
+  schedSection.innerHTML = html;
+}
+
+// Manual modal
+let manualRows = [];
+function openManual() {
+  manualRows = loadManualEvents().map(e => ({...e}));
+  if (manualRows.length === 0) manualRows.push({ time: '', name: '' });
+  renderManualList();
+  document.getElementById('manualModal').classList.add('open');
+}
+function closeManual() { document.getElementById('manualModal').classList.remove('open'); }
+function addManualRow() { manualRows.push({ time: '', name: '' }); renderManualList(); }
+function renderManualList() {
+  const list = document.getElementById('manualList');
+  list.innerHTML = '';
+  manualRows.forEach((row, i) => {
+    const div = document.createElement('div');
+    div.className = 'event-input-row';
+    div.innerHTML = `
+      <input class="time-input" type="time" value="${row.time||''}" step="900"
+        onchange="manualRows[${i}].time=this.value">
+      <input class="name-input" type="text" placeholder="予定名" value="${row.name||''}"
+        oninput="manualRows[${i}].name=this.value">
+      <button class="del-btn-modal" onclick="manualRows.splice(${i},1);renderManualList()">×</button>
+    `;
+    list.appendChild(div);
+  });
+}
+function saveManual() {
+  const valid = manualRows.filter(r => r.time && r.name);
+  saveManualEventsToStorage(valid);
+  closeManual();
+  updateClock();
+}
+
+// Init
+updateClock();
+setInterval(updateClock, 1000);
+
+document.getElementById('manualModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('manualModal')) closeManual();
+});
+</script>
+</body>
+</html>
