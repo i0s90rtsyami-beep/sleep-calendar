@@ -386,49 +386,86 @@ function loadFromCalendar() {
   } catch(e) { return null; }
 }
 
-function buildEventsFromSched(schedItems, baseAbsMin) {
-  // schedItemsはbuildScheduleで生成されたイベント配列を想定
-  // ここではlocalStorageに保存されたスケジュール結果を使う
-  return schedItems;
-}
-
-// 今日・明日のスケジュールをlocalStorageから構築
-function buildTodayEvents() {
+// 睡眠カレンダーの記録から就床・就寝・起床イベントを取得
+function loadSleepEvents() {
   const data = loadFromCalendar();
+  if (!data) return [];
   const events = [];
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  // 手動追加イベント
-  const manual = loadManualEvents();
-  manual.forEach(ev => {
-    if (ev.time && ev.name) {
-      events.push({
-        absMin: t2m(ev.time) < nowMin - 120 ? t2m(ev.time) + 1440 : t2m(ev.time),
-        timeMin: t2m(ev.time),
-        label: ev.name,
-        icon: '📌',
-        note: '',
-        manual: true
-      });
-    }
-  });
+  // 昨日・今日・明日の3日分を探す（深夜就床は前日記録になる場合がある）
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = `${yesterday.getFullYear()}-${pad(yesterday.getMonth()+1)}-${pad(yesterday.getDate())}`;
 
-  if (!data) return events.sort((a,b)=>a.absMin-b.absMin);
-
-  // 今日・明日のスケジュールデータを探す
-  [todayKey(), tomorrowKey()].forEach((key, dayOffset) => {
+  [yesterdayKey, todayKey(), tomorrowKey()].forEach((key, di) => {
     const rec = data[key];
-    if (!rec || !rec.schedResult) return;
-    rec.schedResult.forEach(ev => {
-      let absMin = ev.timeMin + dayOffset * 1440;
-      // 深夜0〜6時のイベントは翌日扱い
-      if (dayOffset === 0 && ev.timeMin < 360 && nowMin > 360) absMin += 1440;
-      events.push({ ...ev, absMin, dayOffset });
+    if (!rec || !rec.blocks) return;
+    const mainBlocks = (rec.blocks || []).filter(b => !b.noIntoBed && b.bed && b.wake);
+    mainBlocks.forEach(b => {
+      const bedM = t2m(b.bed);
+      const wakeM = t2m(b.wake);
+      const intoBedM = b.intoBed ? t2m(b.intoBed) : null;
+
+      // 絶対分を計算（昨日=-1440, 今日=0, 明日=+1440 オフセット）
+      const dayOffset = (di - 1) * 1440;
+
+      // 就床
+      if (intoBedM !== null) {
+        let absM = intoBedM + dayOffset;
+        if (absM < nowMin - 120) absM += 1440;
+        if (absM > nowMin + 1440) return;
+        events.push({ absMin: absM, timeMin: intoBedM, label: '就床・服薬', icon: '🕯️', note: '' });
+      }
+      // 就寝
+      {
+        let absM = bedM + dayOffset;
+        if (bedM < (intoBedM || bedM)) absM += 1440;
+        if (absM < nowMin - 120) absM += 1440;
+        if (absM > nowMin + 1440) return;
+        events.push({ absMin: absM, timeMin: bedM, label: '就寝', icon: '🛏️', note: '' });
+      }
+      // 起床
+      {
+        let absM = wakeM + dayOffset;
+        if (wakeM < bedM) absM += 1440;
+        if (absM < nowMin - 120) absM += 1440;
+        if (absM > nowMin + 1440) return;
+        events.push({ absMin: absM, timeMin: wakeM, label: '起床', icon: '🌅', note: '' });
+      }
     });
   });
 
-  return events.sort((a,b) => a.absMin - b.absMin);
+  // 重複除去（同じtimeMinとlabelのものは1つに）
+  const seen = new Set();
+  return events.filter(ev => {
+    const key = `${ev.timeMin}-${ev.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  }).sort((a,b) => a.absMin - b.absMin);
+}
+
+// 手動追加イベントを取得
+function loadManualAsEvents() {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  return loadManualEvents()
+    .filter(ev => ev.time && ev.name)
+    .map(ev => ({
+      absMin: t2m(ev.time) < nowMin - 120 ? t2m(ev.time) + 1440 : t2m(ev.time),
+      timeMin: t2m(ev.time),
+      label: ev.name,
+      icon: '📌',
+      note: '',
+      manual: true
+    }));
+}
+
+// 睡眠イベント＋手動イベントを常に合わせて返す
+function buildTodayEvents() {
+  const sleepEvs = loadSleepEvents();
+  const manualEvs = loadManualAsEvents();
+  return [...sleepEvs, ...manualEvs].sort((a, b) => a.absMin - b.absMin);
 }
 
 function loadManualEvents() {
@@ -457,49 +494,6 @@ function remainStr(diffMin) {
   return `${h}時間${m}分`;
 }
 
-// カレンダーからスケジュールが見つからない場合のフォールバック
-// 今夜の予測パネルのデータをlocalStorageから引っ張る試み
-function tryLoadTonightData() {
-  const data = loadFromCalendar();
-  if (!data) return [];
-  const events = [];
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-
-  // 今日・明日のデータを探す
-  [todayKey(), tomorrowKey()].forEach((key, di) => {
-    const rec = data[key];
-    if (!rec || !rec.blocks) return;
-
-    // メイン睡眠ブロックから就床・就寝・起床を取得
-    const mainBlocks = (rec.blocks || []).filter(b => !b.noIntoBed && b.bed && b.wake);
-    mainBlocks.forEach(b => {
-      const bedM = t2m(b.bed);
-      const wakeM = t2m(b.wake);
-      const intoBedM = b.intoBed ? t2m(b.intoBed) : null;
-
-      if (intoBedM !== null) {
-        let absM = intoBedM + di * 1440;
-        if (di === 0 && intoBedM < nowMin - 120) absM += 1440;
-        events.push({ absMin: absM, timeMin: intoBedM, label: '就床・服薬', icon: '🕯️', note: '' });
-      }
-      {
-        let absM = bedM + di * 1440;
-        if (di === 0 && bedM < nowMin - 120) absM += 1440;
-        events.push({ absMin: absM, timeMin: bedM, label: '就寝', icon: '🛏️', note: '' });
-      }
-      {
-        let absM = wakeM + di * 1440;
-        if (wakeM < bedM) absM += 1440;
-        if (di === 0 && wakeM < nowMin - 120) absM += 1440;
-        events.push({ absMin: absM, timeMin: wakeM, label: '起床', icon: '🌅', note: '' });
-      }
-    });
-  });
-
-  return events.sort((a,b) => a.absMin - b.absMin);
-}
-
 function updateClock() {
   const now = new Date();
   const h = pad(now.getHours());
@@ -519,13 +513,8 @@ function updateScheduleDisplay(now) {
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const nowAbsMin = nowMin; // 今日の分単位（0〜1439）
 
-  // イベント一覧を再構築（手動追加も含む）
-  const allEvents = buildTodayEvents().length > 0
-    ? buildTodayEvents()
-    : tryLoadTonightData().concat(loadManualEvents().map(ev => ({
-        absMin: t2m(ev.time) < nowMin - 120 ? t2m(ev.time) + 1440 : t2m(ev.time),
-        timeMin: t2m(ev.time), label: ev.name, icon: '📌', note: '', manual: true
-      }))).sort((a,b) => a.absMin - b.absMin);
+  // 睡眠イベント＋手動イベントを常に合わせて表示
+  const allEvents = buildTodayEvents();
 
   // 次のイベントを見つける
   const upcoming = allEvents.filter(ev => ev.absMin > nowAbsMin);
