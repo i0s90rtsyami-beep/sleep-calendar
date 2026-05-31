@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="睡眠ログ">
 <title>睡眠カレンダー</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="chart.min.js"></script>
 <style>
 :root {
   --bg: #faf9f7; --surface: #ffffff; --surface2: #f3f1ed;
@@ -171,26 +171,26 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
 .model-status.none { background: var(--surface2); color: var(--text3); }
 
 /* ── Today view ── */
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+/* DM Mono - system monospace fallback */
 .today-view { display:none; position:fixed; inset:0; background:#0f0f0f; z-index:200; flex-direction:column; height:100dvh; overflow:hidden; font-family:-apple-system,'Hiragino Sans',sans-serif; }
 .today-view.active { display:flex; }
 .today-clock-section { padding:48px 28px 20px; flex-shrink:0; }
-.today-time { font-family:'DM Mono',monospace; font-size:clamp(64px,18vw,96px); font-weight:300; letter-spacing:-2px; line-height:1; color:#f0ede8; margin-bottom:6px; }
+.today-time { font-family: 'SF Mono', ui-monospace, monospace; font-size: clamp(64px,18vw,96px); font-weight: 300; letter-spacing:-2px; line-height:1; color:#f0ede8; margin-bottom:6px; }
 .today-time .sec { font-size:0.42em; color:#555250; vertical-align:super; margin-left:2px; }
 .today-date { font-size:14px; color:#888480; font-weight:300; }
 .today-next { margin:0 20px; background:#1a1a1a; border-radius:16px; padding:16px 18px; border:1px solid rgba(255,255,255,0.08); flex-shrink:0; position:relative; overflow:hidden; }
 .today-next::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,#7fa8c9,#c8b89a); opacity:0.6; }
-.today-next-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#555250; font-family:'DM Mono',monospace; margin-bottom:8px; }
+.today-next-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#555250; font-family:'SF Mono',ui-monospace,monospace; margin-bottom:8px; }
 .today-next-name { font-size:17px; color:#f0ede8; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
-.today-countdown { font-family:'DM Mono',monospace; font-size:clamp(30px,8vw,46px); font-weight:300; color:#c8b89a; letter-spacing:-1px; line-height:1; }
+.today-countdown { font-family:'SF Mono',ui-monospace,monospace; font-size:clamp(30px,8vw,46px); font-weight:300; color:#c8b89a; letter-spacing:-1px; line-height:1; }
 .today-countdown.urgent { color:#c97fa8; animation:tdpulse 1s ease-in-out infinite; }
 .today-countdown.soon { color:#c9a87f; }
 @keyframes tdpulse { 0%,100%{opacity:1}50%{opacity:0.5} }
-.today-next-at { font-size:12px; color:#555250; margin-top:4px; font-family:'DM Mono',monospace; }
+.today-next-at { font-size:12px; color:#555250; margin-top:4px; font-family:'SF Mono',ui-monospace,monospace; }
 .today-no-event { font-size:14px; color:#555250; font-style:italic; }
 .today-list { flex:1; overflow-y:auto; padding:14px 20px 90px; -webkit-overflow-scrolling:touch; }
 .today-list::-webkit-scrollbar { display:none; }
-.today-day-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#555250; font-family:'DM Mono',monospace; margin:14px 0 6px; }
+.today-day-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#555250; font-family:'SF Mono',ui-monospace,monospace; margin:14px 0 6px; }
 .today-day-lbl:first-child { margin-top:0; }
 .today-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.07); transition:opacity 0.3s; }
 .today-item:last-child { border-bottom:none; }
@@ -199,15 +199,15 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
 .today-item-icon { width:32px;height:32px; border-radius:50%; background:#222; display:flex;align-items:center;justify-content:center; font-size:15px; flex-shrink:0; }
 .today-item.current .today-item-icon { background:rgba(200,184,154,0.12); }
 .today-item-body { flex:1; min-width:0; }
-.today-item-time { font-family:'DM Mono',monospace; font-size:12px; color:#555250; margin-bottom:1px; }
+.today-item-time { font-family:'SF Mono',ui-monospace,monospace; font-size:12px; color:#555250; margin-bottom:1px; }
 .today-item-name { font-size:14px; color:#f0ede8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .today-item-note { font-size:11px; color:#555250; margin-top:1px; }
-.today-item-remain { font-family:'DM Mono',monospace; font-size:11px; color:#555250; flex-shrink:0; }
+.today-item-remain { font-family:'SF Mono',ui-monospace,monospace; font-size:11px; color:#555250; flex-shrink:0; }
 .today-item.current .today-item-remain { color:#c8b89a; }
 .today-bottom { position:absolute; bottom:0; left:0; right:0; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; background:#0f0f0f; border-top:1px solid rgba(255,255,255,0.07); z-index:10; }
-.today-back-btn { background:none; border:none; color:#888480; font-size:13px; font-family:'DM Mono',monospace; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.today-back-btn { background:none; border:none; color:#888480; font-size:13px; font-family:'SF Mono',ui-monospace,monospace; cursor:pointer; display:flex; align-items:center; gap:6px; }
 .today-add-btn { background:none; border:none; color:#888480; font-size:13px; font-family:inherit; cursor:pointer; }
-.today-sync { font-size:11px; color:#555250; font-family:'DM Mono',monospace; display:flex; align-items:center; gap:4px; }
+.today-sync { font-size:11px; color:#555250; font-family:'SF Mono',ui-monospace,monospace; display:flex; align-items:center; gap:4px; }
 .today-sync-dot { width:6px;height:6px;border-radius:50%;background:#7fc9a8; animation:tdblink 3s ease-in-out infinite; }
 .today-sync-dot.off { background:#555250; animation:none; }
 @keyframes tdblink { 0%,100%{opacity:1}50%{opacity:0.3} }
@@ -218,7 +218,7 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
 .today-manual-title { font-size:15px;font-weight:600;color:#f0ede8;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between; }
 .today-manual-desc { font-size:12px;color:#888480;margin-bottom:14px;line-height:1.6; }
 .today-manual-row { display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;margin-bottom:8px; }
-.today-manual-time { font-family:'DM Mono',monospace;font-size:13px;padding:7px 8px;background:#222;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f0ede8;width:100%; }
+.today-manual-time { font-family:'SF Mono',ui-monospace,monospace;font-size:13px;padding:7px 8px;background:#222;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f0ede8;width:100%; }
 .today-manual-name { font-size:13px;padding:7px 8px;background:#222;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f0ede8;width:100%;font-family:inherit; }
 .today-manual-time:focus,.today-manual-name:focus { outline:none;border-color:#7fa8c9; }
 .today-manual-del { background:none;border:none;color:#555250;font-size:18px;cursor:pointer; }
@@ -1250,6 +1250,19 @@ function buildSchedule() {
   });
 
   document.getElementById('schedResult').style.display = 'block';
+
+  // 今日画面用にスケジュール結果をlocalStorageに保存
+  const savedDateKey = selDate || (()=>{ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; })();
+  const savePayload = events.map(ev => ({
+    timeMin: ev.timeMin,
+    absMin: ev.absMin,
+    label: ev.label,
+    icon: iconMap[ev.type] || '📌',
+    note: ev.note || '',
+    type: ev.type
+  }));
+  try { localStorage.setItem('today-schedule-' + savedDateKey, JSON.stringify({ date: savedDateKey, events: savePayload })); } catch(e) {}
+  showToast('スケジュールを生成・保存しました ✓');
 }
 
 // ── Tonight Prediction ───────────────────────────────
@@ -1374,9 +1387,6 @@ function doImport() {
   catch(e) { showToast('データの形式が正しくありません'); }
 }
 document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');}));
-document.getElementById('noSleep').addEventListener('change',function(){ document.getElementById('sleepBlocks').style.display=this.checked?'none':'block'; renderPrediction(); });
-document.getElementById('wentOut').addEventListener('change',function(){ document.getElementById('outDetail').style.display=this.checked?'block':'none'; });
-document.getElementById('mensOn').addEventListener('change',function(){ document.getElementById('mensDetail').style.display=this.checked?'block':'none'; });
 
 function chMonth(d) { curM+=d; if(curM>12){curM=1;curY++;} if(curM<1){curM=12;curY--;} renderCalendar(); }
 
@@ -1420,14 +1430,34 @@ function tdLoadSleepEvents(){
   return events.filter(ev=>{ const k=`${ev.timeMin}-${ev.label}`; if(seen.has(k))return false; seen.add(k);return true; }).sort((a,b)=>a.absMin-b.absMin);
 }
 
+function tdLoadSavedSchedule() {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  for (const dateKey of [tdTodayKey(), tdYesterdayKey()]) {
+    const raw = localStorage.getItem('today-schedule-' + dateKey);
+    if (!raw) continue;
+    try {
+      const saved = JSON.parse(raw);
+      if (!saved.events || !saved.events.length) continue;
+      return saved.events.map(ev => {
+        let absMin = ev.timeMin;
+        if (absMin < nowMin - 120) absMin += 1440;
+        return { ...ev, absMin };
+      }).sort((a, b) => a.absMin - b.absMin);
+    } catch(e) {}
+  }
+  return null;
+}
+
 function tdBuildEvents(){
   const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
-  const sleep=tdLoadSleepEvents();
+  // 保存済みスケジュールがあればそれを優先（服薬・食事タイムリミット・固定予定も含む）
+  const base = tdLoadSavedSchedule() || tdLoadSleepEvents();
   const manual=tdLoadManual().filter(e=>e.time&&e.name).map(e=>({
     absMin:t2m(e.time)<nowMin-120?t2m(e.time)+1440:t2m(e.time),
     timeMin:t2m(e.time),label:e.name,icon:'📌',note:'',manual:true
   }));
-  return [...sleep,...manual].sort((a,b)=>a.absMin-b.absMin);
+  return [...base,...manual].sort((a,b)=>a.absMin-b.absMin);
 }
 
 function tdUpdateClock(){
@@ -1518,7 +1548,6 @@ function renderTdManual(){
   });
 }
 function saveTdManual(){ tdSaveManual(tdManualRows.filter(r=>r.time&&r.name)); closeTdManual(); tdUpdateClock(); }
-document.getElementById('tdManualModal').addEventListener('click',e=>{ if(e.target===document.getElementById('tdManualModal'))closeTdManual(); });
 
 // ── Init ──────────────────────────────────────────────
 load();
@@ -1526,15 +1555,18 @@ const now=new Date(); curY=now.getFullYear(); curM=now.getMonth()+1;
 renderCalendar(); updateStats(); updateWeekChart();
 initTonightPanel();
 
+document.getElementById('noSleep').addEventListener('change',function(){ document.getElementById('sleepBlocks').style.display=this.checked?'none':'block'; renderPrediction(); });
+document.getElementById('wentOut').addEventListener('change',function(){ document.getElementById('outDetail').style.display=this.checked?'block':'none'; });
+document.getElementById('mensOn').addEventListener('change',function(){ document.getElementById('mensDetail').style.display=this.checked?'block':'none'; });
+document.getElementById('tdManualModal').addEventListener('click',e=>{ if(e.target===document.getElementById('tdManualModal'))closeTdManual(); });
+
 // ヘッダーに「今日」ボタンを追加
-try {
-  document.querySelector('.header-actions').insertAdjacentHTML('afterbegin',
-    `<button class="icon-btn" onclick="switchToToday()" title="今日の予定">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      今日
-    </button>`
-  );
-} catch(e) { console.warn('今日ボタンの追加に失敗:', e); }
+document.querySelector('.header-actions').insertAdjacentHTML('afterbegin',
+  `<button class="icon-btn" onclick="switchToToday()" title="今日の予定">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    今日
+  </button>`
+);
 
 // ハッシュで自動切り替え
 if(location.hash==='#today') switchToToday();
