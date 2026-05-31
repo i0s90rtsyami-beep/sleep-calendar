@@ -169,6 +169,62 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
 .model-status { font-size: 12px; margin-top: 8px; padding: 6px 10px; border-radius: var(--radius-sm); }
 .model-status.loaded { background: var(--green-light); color: var(--green-dark); }
 .model-status.none { background: var(--surface2); color: var(--text3); }
+
+/* ── Today view ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
+.today-view { display:none; position:fixed; inset:0; background:#0f0f0f; z-index:200; flex-direction:column; height:100dvh; overflow:hidden; font-family:-apple-system,'Hiragino Sans',sans-serif; }
+.today-view.active { display:flex; }
+.today-clock-section { padding:48px 28px 20px; flex-shrink:0; }
+.today-time { font-family:'DM Mono',monospace; font-size:clamp(64px,18vw,96px); font-weight:300; letter-spacing:-2px; line-height:1; color:#f0ede8; margin-bottom:6px; }
+.today-time .sec { font-size:0.42em; color:#555250; vertical-align:super; margin-left:2px; }
+.today-date { font-size:14px; color:#888480; font-weight:300; }
+.today-next { margin:0 20px; background:#1a1a1a; border-radius:16px; padding:16px 18px; border:1px solid rgba(255,255,255,0.08); flex-shrink:0; position:relative; overflow:hidden; }
+.today-next::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,#7fa8c9,#c8b89a); opacity:0.6; }
+.today-next-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#555250; font-family:'DM Mono',monospace; margin-bottom:8px; }
+.today-next-name { font-size:17px; color:#f0ede8; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.today-countdown { font-family:'DM Mono',monospace; font-size:clamp(30px,8vw,46px); font-weight:300; color:#c8b89a; letter-spacing:-1px; line-height:1; }
+.today-countdown.urgent { color:#c97fa8; animation:tdpulse 1s ease-in-out infinite; }
+.today-countdown.soon { color:#c9a87f; }
+@keyframes tdpulse { 0%,100%{opacity:1}50%{opacity:0.5} }
+.today-next-at { font-size:12px; color:#555250; margin-top:4px; font-family:'DM Mono',monospace; }
+.today-no-event { font-size:14px; color:#555250; font-style:italic; }
+.today-list { flex:1; overflow-y:auto; padding:14px 20px 90px; -webkit-overflow-scrolling:touch; }
+.today-list::-webkit-scrollbar { display:none; }
+.today-day-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#555250; font-family:'DM Mono',monospace; margin:14px 0 6px; }
+.today-day-lbl:first-child { margin-top:0; }
+.today-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.07); transition:opacity 0.3s; }
+.today-item:last-child { border-bottom:none; }
+.today-item.past { opacity:0.28; }
+.today-item.current .today-item-name { color:#c8b89a; }
+.today-item-icon { width:32px;height:32px; border-radius:50%; background:#222; display:flex;align-items:center;justify-content:center; font-size:15px; flex-shrink:0; }
+.today-item.current .today-item-icon { background:rgba(200,184,154,0.12); }
+.today-item-body { flex:1; min-width:0; }
+.today-item-time { font-family:'DM Mono',monospace; font-size:12px; color:#555250; margin-bottom:1px; }
+.today-item-name { font-size:14px; color:#f0ede8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.today-item-note { font-size:11px; color:#555250; margin-top:1px; }
+.today-item-remain { font-family:'DM Mono',monospace; font-size:11px; color:#555250; flex-shrink:0; }
+.today-item.current .today-item-remain { color:#c8b89a; }
+.today-bottom { position:absolute; bottom:0; left:0; right:0; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; background:#0f0f0f; border-top:1px solid rgba(255,255,255,0.07); z-index:10; }
+.today-back-btn { background:none; border:none; color:#888480; font-size:13px; font-family:'DM Mono',monospace; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.today-add-btn { background:none; border:none; color:#888480; font-size:13px; font-family:inherit; cursor:pointer; }
+.today-sync { font-size:11px; color:#555250; font-family:'DM Mono',monospace; display:flex; align-items:center; gap:4px; }
+.today-sync-dot { width:6px;height:6px;border-radius:50%;background:#7fc9a8; animation:tdblink 3s ease-in-out infinite; }
+.today-sync-dot.off { background:#555250; animation:none; }
+@keyframes tdblink { 0%,100%{opacity:1}50%{opacity:0.3} }
+.today-manual-modal { position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s; }
+.today-manual-modal.open { opacity:1;pointer-events:all; }
+.today-manual-inner { background:#1a1a1a;border-radius:16px 16px 0 0;padding:24px 20px 40px;width:100%;max-width:520px;transform:translateY(20px);transition:transform 0.2s;border-top:1px solid rgba(255,255,255,0.08); }
+.today-manual-modal.open .today-manual-inner { transform:translateY(0); }
+.today-manual-title { font-size:15px;font-weight:600;color:#f0ede8;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between; }
+.today-manual-desc { font-size:12px;color:#888480;margin-bottom:14px;line-height:1.6; }
+.today-manual-row { display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center;margin-bottom:8px; }
+.today-manual-time { font-family:'DM Mono',monospace;font-size:13px;padding:7px 8px;background:#222;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f0ede8;width:100%; }
+.today-manual-name { font-size:13px;padding:7px 8px;background:#222;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f0ede8;width:100%;font-family:inherit; }
+.today-manual-time:focus,.today-manual-name:focus { outline:none;border-color:#7fa8c9; }
+.today-manual-del { background:none;border:none;color:#555250;font-size:18px;cursor:pointer; }
+.today-manual-btns { display:flex;gap:8px;margin-top:12px; }
+.today-manual-btn { flex:1;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;border:1px solid rgba(255,255,255,0.1);background:#222;color:#f0ede8; }
+.today-manual-btn.primary { background:#c8b89a;color:#0f0f0f;border-color:#c8b89a;font-weight:500; }
 </style>
 </head>
 <body>
@@ -429,6 +485,41 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
     <div class="modal-actions">
       <button class="modal-btn" onclick="closeModal('importModal')">キャンセル</button>
       <button class="modal-btn primary" onclick="doImport()">復元する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Today View ── -->
+<div class="today-view" id="todayView">
+  <div class="today-clock-section">
+    <div class="today-time"><span id="tdHM">00:00</span><span class="sec" id="tdS">00</span></div>
+    <div class="today-date" id="tdDate"></div>
+  </div>
+  <div class="today-next" id="tdNext">
+    <div class="today-next-lbl">NEXT</div>
+    <div id="tdNextContent"><div class="today-no-event">読み込み中...</div></div>
+  </div>
+  <div class="today-list" id="tdList"></div>
+  <div class="today-bottom">
+    <button class="today-back-btn" onclick="switchToCalendar()">← カレンダー</button>
+    <button class="today-add-btn" onclick="openTdManual()">＋ 手動追加</button>
+    <div class="today-sync"><span class="today-sync-dot" id="tdSyncDot"></span><span id="tdSyncLbl">確認中</span></div>
+  </div>
+</div>
+
+<!-- Today manual modal -->
+<div class="today-manual-modal" id="tdManualModal">
+  <div class="today-manual-inner">
+    <div class="today-manual-title">
+      手動で予定を追加
+      <button style="background:none;border:none;color:#888480;font-size:20px;cursor:pointer" onclick="closeTdManual()">×</button>
+    </div>
+    <div class="today-manual-desc">睡眠データ以外の予定を追加できます。今日限りで消えます。</div>
+    <div id="tdManualList"></div>
+    <button class="today-manual-btn" onclick="addTdManualRow()" style="width:100%;margin-bottom:12px">＋ 追加</button>
+    <div class="today-manual-btns">
+      <button class="today-manual-btn" onclick="closeTdManual()">キャンセル</button>
+      <button class="today-manual-btn primary" onclick="saveTdManual()">保存して反映</button>
     </div>
   </div>
 </div>
@@ -1289,11 +1380,165 @@ document.getElementById('mensOn').addEventListener('change',function(){ document
 
 function chMonth(d) { curM+=d; if(curM>12){curM=1;curY++;} if(curM<1){curM=12;curY--;} renderCalendar(); }
 
+
+// ── Today View ────────────────────────────────────────
+const TD_MANUAL_KEY = 'today-manual-events';
+let tdManualRows = [];
+let tdClockTimer = null;
+
+function tdPad(n){ return String(n).padStart(2,'0'); }
+function tdTodayKey(){ const d=new Date(); return `${d.getFullYear()}-${tdPad(d.getMonth()+1)}-${tdPad(d.getDate())}`; }
+function tdTomorrowKey(){ const d=new Date(); d.setDate(d.getDate()+1); return `${d.getFullYear()}-${tdPad(d.getMonth()+1)}-${tdPad(d.getDate())}`; }
+function tdYesterdayKey(){ const d=new Date(); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${tdPad(d.getMonth()+1)}-${tdPad(d.getDate())}`; }
+function tdRemain(min){ const a=Math.abs(min); if(a<1)return'まもなく'; const h=Math.floor(a/60),m=a%60; if(h===0)return`${m}分`; if(m===0)return`${h}時間`; return`${h}時間${m}分`; }
+
+function tdLoadManual(){
+  try{ const r=localStorage.getItem(TD_MANUAL_KEY); if(!r)return[]; const s=JSON.parse(r); return s.date===tdTodayKey()?s.events||[]:[];}catch(e){return[];}
+}
+function tdSaveManual(evs){ localStorage.setItem(TD_MANUAL_KEY,JSON.stringify({date:tdTodayKey(),events:evs})); }
+
+function tdLoadSleepEvents(){
+  const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
+  const events=[];
+  [tdYesterdayKey(),tdTodayKey(),tdTomorrowKey()].forEach((key,di)=>{
+    const rec=data[key]; if(!rec||!rec.blocks)return;
+    const mbs=(rec.blocks||[]).filter(b=>!b.noIntoBed&&b.bed&&b.wake);
+    mbs.forEach(b=>{
+      const bedM=t2m(b.bed), wakeM=t2m(b.wake), ibM=b.intoBed?t2m(b.intoBed):null;
+      const dayOff=(di-1)*1440;
+      if(ibM!==null){
+        let a=ibM+dayOff; if(a<nowMin-120)a+=1440; if(a>nowMin+1440)return;
+        events.push({absMin:a,timeMin:ibM,label:'就床・服薬',icon:'🕯️',note:''});
+      }
+      { let a=bedM+dayOff; if(a<nowMin-120)a+=1440; if(a>nowMin+1440)return;
+        events.push({absMin:a,timeMin:bedM,label:'就寝',icon:'🛏️',note:''});}
+      { let a=wakeM+dayOff; if(wakeM<bedM)a+=1440; if(a<nowMin-120)a+=1440; if(a>nowMin+1440)return;
+        events.push({absMin:a,timeMin:wakeM,label:'起床',icon:'🌅',note:''});}
+    });
+  });
+  const seen=new Set();
+  return events.filter(ev=>{ const k=`${ev.timeMin}-${ev.label}`; if(seen.has(k))return false; seen.add(k);return true; }).sort((a,b)=>a.absMin-b.absMin);
+}
+
+function tdBuildEvents(){
+  const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
+  const sleep=tdLoadSleepEvents();
+  const manual=tdLoadManual().filter(e=>e.time&&e.name).map(e=>({
+    absMin:t2m(e.time)<nowMin-120?t2m(e.time)+1440:t2m(e.time),
+    timeMin:t2m(e.time),label:e.name,icon:'📌',note:'',manual:true
+  }));
+  return [...sleep,...manual].sort((a,b)=>a.absMin-b.absMin);
+}
+
+function tdUpdateClock(){
+  const now=new Date();
+  document.getElementById('tdHM').textContent=`${tdPad(now.getHours())}:${tdPad(now.getMinutes())}`;
+  document.getElementById('tdS').textContent=tdPad(now.getSeconds());
+  const wDays=['日','月','火','水','木','金','土'];
+  document.getElementById('tdDate').textContent=`${wDays[now.getDay()]}曜日 ${now.getMonth()+1}月${now.getDate()}日`;
+  tdUpdateSchedule(now);
+}
+
+function tdUpdateSchedule(now){
+  const nowMin=now.getHours()*60+now.getMinutes();
+  const allEvs=tdBuildEvents();
+  const syncDot=document.getElementById('tdSyncDot');
+  const syncLbl=document.getElementById('tdSyncLbl');
+  if(allEvs.length===0){ syncDot.className='today-sync-dot off'; syncLbl.textContent='データなし'; }
+  else { syncDot.className='today-sync-dot'; syncLbl.textContent='同期済み'; }
+
+  // Next
+  const upcoming=allEvs.filter(e=>e.absMin>nowMin);
+  const nextEv=upcoming[0]||null;
+  const nc=document.getElementById('tdNextContent');
+  if(!nextEv){ nc.innerHTML='<div class="today-no-event">今日の予定はすべて終わりました</div>'; }
+  else{
+    const diff=nextEv.absMin-nowMin;
+    const cls=diff<=15?'urgent':diff<=60?'soon':'';
+    nc.innerHTML=`<div class="today-next-name"><span>${nextEv.icon}</span>${nextEv.label}</div>
+      <div class="today-countdown ${cls}">あと ${tdRemain(diff)}</div>
+      <div class="today-next-at">${m2t(nextEv.timeMin)} 予定</div>`;
+  }
+
+  // List
+  const list=document.getElementById('tdList');
+  const wDays=['日','月','火','水','木','金','土'];
+  let lastDay=-1; let html='';
+  allEvs.forEach(ev=>{
+    const dayOff=Math.floor(ev.absMin/1440);
+    if(dayOff!==lastDay){
+      lastDay=dayOff;
+      const d=new Date(now); d.setDate(d.getDate()+dayOff);
+      html+=`<div class="today-day-lbl">${d.getMonth()+1}月${d.getDate()}日（${wDays[d.getDay()]}）</div>`;
+    }
+    const isPast=ev.absMin<nowMin-1;
+    const isCurrent=nextEv&&ev.absMin===nextEv.absMin;
+    const diff=ev.absMin-nowMin;
+    const rem=isPast?'':diff<=0?'いま':`あと${tdRemain(diff)}`;
+    html+=`<div class="today-item${isPast?' past':''}${isCurrent?' current':''}">
+      <div class="today-item-icon">${ev.icon}</div>
+      <div class="today-item-body">
+        <div class="today-item-time">${m2t(ev.timeMin)}</div>
+        <div class="today-item-name">${ev.label}</div>
+        ${ev.note?`<div class="today-item-note">${ev.note}</div>`:''}
+      </div>
+      <div class="today-item-remain">${rem}</div>
+    </div>`;
+  });
+  list.innerHTML=html;
+}
+
+function switchToToday(){
+  document.getElementById('todayView').classList.add('active');
+  document.body.style.overflow='hidden';
+  tdUpdateClock();
+  if(tdClockTimer)clearInterval(tdClockTimer);
+  tdClockTimer=setInterval(tdUpdateClock,1000);
+  location.hash='today';
+}
+function switchToCalendar(){
+  document.getElementById('todayView').classList.remove('active');
+  document.body.style.overflow='';
+  if(tdClockTimer){clearInterval(tdClockTimer);tdClockTimer=null;}
+  history.pushState('',document.title,window.location.pathname);
+}
+
+// Manual modal
+function openTdManual(){ tdManualRows=tdLoadManual().map(e=>({...e})); if(!tdManualRows.length)tdManualRows.push({time:'',name:''}); renderTdManual(); document.getElementById('tdManualModal').classList.add('open'); }
+function closeTdManual(){ document.getElementById('tdManualModal').classList.remove('open'); }
+function addTdManualRow(){ tdManualRows.push({time:'',name:''});renderTdManual(); }
+function renderTdManual(){
+  const list=document.getElementById('tdManualList'); list.innerHTML='';
+  tdManualRows.forEach((r,i)=>{
+    const div=document.createElement('div'); div.className='today-manual-row';
+    div.innerHTML=`<input class="today-manual-time" type="time" value="${r.time||''}" step="900" onchange="tdManualRows[${i}].time=this.value">
+      <input class="today-manual-name" type="text" placeholder="予定名" value="${r.name||''}" oninput="tdManualRows[${i}].name=this.value">
+      <button class="today-manual-del" onclick="tdManualRows.splice(${i},1);renderTdManual()">×</button>`;
+    list.appendChild(div);
+  });
+}
+function saveTdManual(){ tdSaveManual(tdManualRows.filter(r=>r.time&&r.name)); closeTdManual(); tdUpdateClock(); }
+document.getElementById('tdManualModal').addEventListener('click',e=>{ if(e.target===document.getElementById('tdManualModal'))closeTdManual(); });
+
 // ── Init ──────────────────────────────────────────────
 load();
 const now=new Date(); curY=now.getFullYear(); curM=now.getMonth()+1;
 renderCalendar(); updateStats(); updateWeekChart();
 initTonightPanel();
+
+// ヘッダーに「今日」ボタンを追加
+try {
+  document.querySelector('.header-actions').insertAdjacentHTML('afterbegin',
+    `<button class="icon-btn" onclick="switchToToday()" title="今日の予定">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      今日
+    </button>`
+  );
+} catch(e) { console.warn('今日ボタンの追加に失敗:', e); }
+
+// ハッシュで自動切り替え
+if(location.hash==='#today') switchToToday();
+window.addEventListener('hashchange',()=>{ if(location.hash==='#today')switchToToday(); else switchToCalendar(); });
 </script>
 </body>
 </html>
