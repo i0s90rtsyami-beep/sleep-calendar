@@ -282,19 +282,6 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
       <div class="tonight-sched" id="tonightSched"></div>
     </div>
   </div>
-      <div class="tonight-result">
-        <div class="tonight-label">予測就寝時刻</div>
-        <div class="tonight-time" id="tonightBedTime">—</div>
-        <div class="tonight-sub" id="tonightBedSub"></div>
-        <div style="margin-top:10px">
-          <div class="tonight-label">予測起床時刻</div>
-          <div class="tonight-time" id="tonightWakeTime">—</div>
-          <div class="tonight-sub" id="tonightWakeSub"></div>
-        </div>
-      </div>
-      <div class="tonight-sched" id="tonightSched"></div>
-    </div>
-  </div>
 
   <div class="stats-row">    <div class="stat-card"><div class="stat-label">平均睡眠潜時</div><div class="stat-val" id="sLatency">—</div><div class="stat-sub">就床→就寝（分）</div></div>
     <div class="stat-card"><div class="stat-label">平均メイン睡眠</div><div class="stat-val" id="sAvg">—</div><div class="stat-sub">時間（就床あり）</div></div>
@@ -788,17 +775,20 @@ function renderTimeline(blocks) {
 
 function renderPrediction() {
   const box=document.getElementById('predBox');
-  const dayData=selDate?data[selDate]:null;
+  if(!selDate){ box.style.display='none'; return; }
+  const dayData=data[selDate]||null;
   const isOuting=!!(dayData&&dayData.outing&&dayData.outing.out);
   const isMenstrual=!!(dayData&&dayData.menstrual&&dayData.menstrual.on);
   const menstrualDay=isMenstrual?(dayData.menstrual.day||0):0;
   const isNextDayOuting=selDate?isPreOutingDay(selDate):false;
   const lgbmResult=predictNextBedTime(currentBlocks, isOuting, isNextDayOuting, isMenstrual, menstrualDay);
 
-  if(lgbmResult===null){box.style.display='none';}
-  else {
-    box.style.display='block';
-    const lgbmSec=document.getElementById('lgbmSection');
+  box.style.display='block';
+
+  const lgbmSec=document.getElementById('lgbmSection');
+  if(lgbmResult===null){
+    lgbmSec.style.display='none';
+  } else {
     lgbmSec.style.display='block';
     const predMin=Math.round(lgbmResult)%1440;
     document.getElementById('lgbmPred').textContent=m2t(((predMin%1440)+1440)%1440);
