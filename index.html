@@ -247,9 +247,9 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
     </div>
   </div>
 
-  <!-- 今夜の予測パネル -->
+  <!-- 次の睡眠パネル -->
   <div class="tonight-panel">
-    <div class="tonight-title">🕯️ 今夜の予測</div>
+    <div class="tonight-title">🛏️ 次の睡眠</div>
     <div class="tonight-grid">
       <div>
         <div class="tonight-label">就床時刻</div>
@@ -263,11 +263,6 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
         </div>
       </div>
     </div>
-    <div style="margin-bottom:10px">
-      <div class="tonight-label" style="margin-bottom:6px">固定予定（今日画面と共有）</div>
-      <div id="tonightFixedList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
-      <button class="add-btn" onclick="addTonightFixed()">＋ 固定予定を追加</button>
-    </div>
     <div id="tonightResult" style="display:none">
       <div class="tonight-result">
         <div class="tonight-label">予測就寝時刻</div>
@@ -279,7 +274,6 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
           <div class="tonight-sub" id="tonightWakeSub"></div>
         </div>
       </div>
-      <div class="tonight-sched" id="tonightSched"></div>
     </div>
   </div>
 
@@ -487,8 +481,26 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div class="today-list" id="tdList"></div>
   <div class="today-bottom">
     <button class="today-back-btn" onclick="switchToCalendar()">← カレンダー</button>
+    <button class="today-add-btn" onclick="openTdFixed()">📌 固定予定</button>
     <button class="today-add-btn" onclick="openTdManual()">＋ 手動追加</button>
     <div class="today-sync"><span class="today-sync-dot" id="tdSyncDot"></span><span id="tdSyncLbl">確認中</span></div>
+  </div>
+</div>
+
+<!-- Today fixed events modal -->
+<div class="today-manual-modal" id="tdFixedModal">
+  <div class="today-manual-inner">
+    <div class="today-manual-title">
+      📌 固定予定
+      <button style="background:none;border:none;color:#888480;font-size:20px;cursor:pointer" onclick="closeTdFixed()">×</button>
+    </div>
+    <div class="today-manual-desc">今日の固定予定を入力してください。次の睡眠欄とも共有されます。</div>
+    <div id="tdFixedList"></div>
+    <button class="today-manual-btn" onclick="addTdFixedRow()" style="width:100%;margin-bottom:12px">＋ 追加</button>
+    <div class="today-manual-btns">
+      <button class="today-manual-btn" onclick="closeTdFixed()">キャンセル</button>
+      <button class="today-manual-btn primary" onclick="saveTdFixed()">保存して反映</button>
+    </div>
   </div>
 </div>
 
@@ -1154,112 +1166,45 @@ function updateTonightPrediction() {
   const avgLat = getAvgLatency();
   const predBedMin = (intoBedMin + avgLat) % 1440;
 
-  // 就寝→起床：統計学習で予測
-  const fakeBlock = [{ noIntoBed: false, intoBed: m2t(intoBedMin), bed: m2t(predBedMin), wake: m2t((predBedMin + 480) % 1440) }];
-
-  // 今日・翌日の日付キーを取得（就床時刻が0〜6時なら翌日扱い）
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
   const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowKey = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth()+1)}-${pad(tomorrow.getDate())}`;
   const dateKey = intoBedMin < 360 ? tomorrowKey : todayKey;
 
-  // 当日の月経データを取得
   const dayData = data[dateKey] || {};
   const isMenstrual = !!(dayData.menstrual && dayData.menstrual.on);
   const menstrualDay = isMenstrual ? (dayData.menstrual.day || 0) : 0;
   const isNextDayOuting = isPreOutingDay(dateKey);
-
+  const fakeBlock = [{ noIntoBed: false, intoBed: m2t(intoBedMin), bed: m2t(predBedMin), wake: m2t((predBedMin + 480) % 1440) }];
   const statResult = predictWake(fakeBlock, dateKey);
   const predWakeMin = statResult ? statResult.predM : (predBedMin + 450) % 1440;
 
-  // LightGBMは「就寝時刻から翌日就寝」を予測するものなので今夜は統計学習のみ使用
-
-  // 表示更新
+  // 表示更新（就寝・起床のみ）
   document.getElementById('tonightResult').style.display = 'block';
   document.getElementById('tonightBedTime').textContent = m2t(predBedMin);
   document.getElementById('tonightBedSub').textContent = `就床から約${avgLat}分後（平均潜時）`;
   document.getElementById('tonightWakeTime').textContent = m2t(predWakeMin);
-
   const rm = statResult ? Math.round(statResult.stdDev * 0.7) : 45;
   const wakeRange = `${m2t((predWakeMin - rm + 1440) % 1440)} 〜 ${m2t((predWakeMin + rm + 1440) % 1440)}`;
   let wakeSub = `（${wakeRange}）`;
   if (statResult) wakeSub += ` ／ 就寝${m2t(predBedMin)} ＋ ${(statResult.sleepDuration/60).toFixed(1)}h`;
   document.getElementById('tonightWakeSub').textContent = wakeSub;
 
-  // 簡易スケジュール（就床時刻を基準に時系列順で並べる）
-  const sched = document.getElementById('tonightSched');
-  sched.innerHTML = '';
-
-  function toAbsFromIntoBed(m) {
-    let diff = m - intoBedMin;
-    if (diff < -30) diff += 1440;
-    return diff;
-  }
-
-  // 起床後のタイムライン（食事タイムリミット・服薬を含む）
-  // 次の就床 = 今夜の就床時刻（翌日）＝ intoBedMin + 1440
-  // 次の服薬 = 次の就床と同時 = intoBedMin + 1440
-  // 食事タイムリミット = 次の服薬2時間前 = intoBedMin + 1440 - 120
-  const nextIntoBedAbs = 1440; // 翌日の同じ就床時刻（今日の就床から24時間後）
-  const nextMedAbs = nextIntoBedAbs; // 服薬 = 就床と同時
-  const lastMealAbs = nextIntoBedAbs - 120; // 食事タイムリミット = 服薬2時間前
+  // 今日画面用にlocalStorageへ保存（就床・就寝・起床のみ）
+  function toAbsFromIntoBed(m) { let d=m-intoBedMin; if(d<-30)d+=1440; return d; }
+  const bedAbs = toAbsFromIntoBed(predBedMin) < 0 ? toAbsFromIntoBed(predBedMin)+1440 : toAbsFromIntoBed(predBedMin);
+  const wakeAbs0 = toAbsFromIntoBed(predWakeMin);
+  const finalWakeAbs = wakeAbs0 < bedAbs ? wakeAbs0+1440 : wakeAbs0;
+  const lastMealAbs = 1440 - 120; // 翌日就床2時間前
   const lastMealM = (intoBedMin - 120 + 1440) % 1440;
-
-  const wakeAbs = toAbsFromIntoBed(predWakeMin) < 0 ? toAbsFromIntoBed(predWakeMin) + 1440 : toAbsFromIntoBed(predWakeMin);
-  const bedAbs = toAbsFromIntoBed(predBedMin) < 0 ? toAbsFromIntoBed(predBedMin) + 1440 : toAbsFromIntoBed(predBedMin);
-  const finalWakeAbs = wakeAbs < bedAbs ? wakeAbs + 1440 : wakeAbs;
-
-  const events = [
-    { absMin: 0, timeMin: intoBedMin, label: '就床・服薬', icon: '🕯️💊', note: '就床と同時に服薬' },
-    { absMin: bedAbs, timeMin: predBedMin, label: '予測就寝', icon: '😴', note: `平均潜時 ${avgLat}分` },
-    { absMin: finalWakeAbs, timeMin: predWakeMin, label: '予測起床', icon: '🌅', note: wakeRange },
-    { absMin: lastMealAbs, timeMin: lastMealM, label: '食事タイムリミット', icon: '🍽️', note: 'これ以降に食事をすると服薬が遅れます' },
+  const sleepEvents = [
+    { absMin: 0,            timeMin: intoBedMin,  label: '就床・服薬',       icon: '🕯️💊', note: '就床と同時に服薬' },
+    { absMin: bedAbs,       timeMin: predBedMin,  label: '予測就寝',         icon: '😴',   note: `平均潜時 ${avgLat}分` },
+    { absMin: finalWakeAbs, timeMin: predWakeMin, label: '予測起床',         icon: '🌅',   note: wakeRange },
+    { absMin: lastMealAbs,  timeMin: lastMealM,   label: '食事タイムリミット', icon: '🍽️',   note: 'これ以降に食事をすると服薬が遅れます' },
   ];
-
-  // 固定予定を追加
-  tonightFixedEvents.filter(ev => ev.label && ev.timeMin).forEach(ev => {
-    const absM = toAbsFromIntoBed(ev.timeMin);
-    const evEnd = ev.endTimeMin || ev.timeMin + 60;
-    const dur = evEnd - ev.timeMin;
-    const durStr = dur >= 60 ? `${Math.floor(dur/60)}時間${dur%60>0?dur%60+'分':''}` : `${dur}分`;
-    events.push({ absMin: absM < 0 ? absM + 1440 : absM, timeMin: ev.timeMin, label: ev.label, icon: '📌', note: `〜${m2t(evEnd)}（${durStr}）` });
-  });
-
-  events.sort((a, b) => a.absMin - b.absMin);
-
-  // 今日画面用に保存
-  const saveKey = 'today-schedule-' + todayKey;
-  const savePayload = events.map(ev => ({ timeMin: ev.timeMin, absMin: ev.absMin, label: ev.label, icon: ev.icon, note: ev.note || '' }));
-  try { localStorage.setItem(saveKey, JSON.stringify({ date: todayKey, events: savePayload })); } catch(e) {}
-
-  // 就床時刻の実際の日付を基準日にする
-  const baseDate = new Date(now);
-  const wDays = ['日','月','火','水','木','金','土'];
-  let lastDay = -1;
-
-  events.forEach(ev => {
-    const dayOffset = Math.floor(ev.absMin / 1440);
-    if (dayOffset !== lastDay) {
-      lastDay = dayOffset;
-      const d = new Date(baseDate);
-      d.setDate(d.getDate() + dayOffset);
-      const lbl = document.createElement('div');
-      lbl.className = 'sched-date-label';
-      lbl.textContent = `${d.getMonth()+1}月${d.getDate()}日（${wDays[d.getDay()]}）`;
-      sched.appendChild(lbl);
-    }
-    const item = document.createElement('div');
-    item.className = 'sched-item';
-    item.innerHTML = `
-      <div class="sched-icon" style="background:var(--surface2);font-size:13px">${ev.icon}</div>
-      <div style="flex:1">
-        <div class="sched-time">${m2t(ev.timeMin)}</div>
-        <div class="sched-label">${ev.label}</div>
-        ${ev.note ? `<div class="sched-note">${ev.note}</div>` : ''}
-      </div>`;
-    sched.appendChild(item);
-  });
+  try { localStorage.setItem('today-schedule-' + todayKey, JSON.stringify({ date: todayKey, events: sleepEvents })); } catch(e) {}
 }
 
 // ── Modal / Toast / Export / Import ───────────────────
@@ -1441,6 +1386,47 @@ function switchToCalendar(){
   if(tdClockTimer){clearInterval(tdClockTimer);tdClockTimer=null;}
   history.pushState('',document.title,window.location.pathname);
 }
+
+// Fixed events modal for today view
+let tdFixedRows = [];
+function openTdFixed() {
+  const shared = loadSharedFixed ? loadSharedFixed() : [];
+  tdFixedRows = shared.map(e=>({...e}));
+  if (!tdFixedRows.length) tdFixedRows.push({ label:'', timeMin: 10*60, endTimeMin: 11*60 });
+  renderTdFixed();
+  document.getElementById('tdFixedModal').classList.add('open');
+}
+function closeTdFixed() { document.getElementById('tdFixedModal').classList.remove('open'); }
+function addTdFixedRow() { tdFixedRows.push({ label:'', timeMin:10*60, endTimeMin:11*60 }); renderTdFixed(); }
+function renderTdFixed() {
+  const list = document.getElementById('tdFixedList'); list.innerHTML='';
+  tdFixedRows.forEach((r,i)=>{
+    const div=document.createElement('div');
+    div.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px';
+    const nameInput=document.createElement('input');
+    nameInput.className='today-manual-name';nameInput.placeholder='予定名';nameInput.value=r.label||'';
+    nameInput.addEventListener('input',()=>tdFixedRows[i].label=nameInput.value);
+    const startSel=document.createElement('input');
+    startSel.type='time';startSel.className='today-manual-time';startSel.step=900;
+    startSel.value=r.timeMin!=null?m2t(r.timeMin):'';
+    startSel.addEventListener('change',()=>tdFixedRows[i].timeMin=t2m(startSel.value));
+    const endSel=document.createElement('input');
+    endSel.type='time';endSel.className='today-manual-time';endSel.step=900;
+    endSel.value=r.endTimeMin!=null?m2t(r.endTimeMin):'';
+    endSel.addEventListener('change',()=>tdFixedRows[i].endTimeMin=t2m(endSel.value));
+    const del=document.createElement('button');del.className='today-manual-del';del.textContent='×';
+    del.addEventListener('click',()=>{tdFixedRows.splice(i,1);renderTdFixed();});
+    div.appendChild(nameInput);div.appendChild(startSel);div.appendChild(endSel);div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+function saveTdFixed() {
+  const valid = tdFixedRows.filter(r=>r.label&&r.timeMin!=null);
+  if (typeof saveSharedFixed === 'function') saveSharedFixed(valid);
+  closeTdFixed();
+  tdUpdateClock();
+}
+document.getElementById('tdFixedModal').addEventListener('click',e=>{ if(e.target===document.getElementById('tdFixedModal'))closeTdFixed(); });
 
 // Manual modal
 function openTdManual(){ tdManualRows=tdLoadManual().map(e=>({...e})); if(!tdManualRows.length)tdManualRows.push({time:'',name:''}); renderTdManual(); document.getElementById('tdManualModal').classList.add('open'); }
