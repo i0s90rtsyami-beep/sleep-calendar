@@ -1198,15 +1198,23 @@ function updateTonightPrediction() {
   }
 
   // 起床後のタイムライン（食事タイムリミット・服薬を含む）
-  const intoBedM2 = predBedMin - 60; // 就床 = 予測就寝1時間前（今夜の就床=intoBedMin）
-  const medM = intoBedMin; // 服薬 = 就床時刻
-  const lastMealM = (medM - 120 + 1440) % 1440; // 食事タイムリミット = 服薬2時間前
+  // 次の就床 = 今夜の就床時刻（翌日）＝ intoBedMin + 1440
+  // 次の服薬 = 次の就床と同時 = intoBedMin + 1440
+  // 食事タイムリミット = 次の服薬2時間前 = intoBedMin + 1440 - 120
+  const nextIntoBedAbs = 1440; // 翌日の同じ就床時刻（今日の就床から24時間後）
+  const nextMedAbs = nextIntoBedAbs; // 服薬 = 就床と同時
+  const lastMealAbs = nextIntoBedAbs - 120; // 食事タイムリミット = 服薬2時間前
+  const lastMealM = (intoBedMin - 120 + 1440) % 1440;
+
+  const wakeAbs = toAbsFromIntoBed(predWakeMin) < 0 ? toAbsFromIntoBed(predWakeMin) + 1440 : toAbsFromIntoBed(predWakeMin);
+  const bedAbs = toAbsFromIntoBed(predBedMin) < 0 ? toAbsFromIntoBed(predBedMin) + 1440 : toAbsFromIntoBed(predBedMin);
+  const finalWakeAbs = wakeAbs < bedAbs ? wakeAbs + 1440 : wakeAbs;
 
   const events = [
     { absMin: 0, timeMin: intoBedMin, label: '就床・服薬', icon: '🕯️💊', note: '就床と同時に服薬' },
-    { absMin: toAbsFromIntoBed(predBedMin), timeMin: predBedMin, label: '予測就寝', icon: '😴', note: `平均潜時 ${avgLat}分` },
-    { absMin: toAbsFromIntoBed(predWakeMin) < toAbsFromIntoBed(predBedMin) ? toAbsFromIntoBed(predWakeMin) + 1440 : toAbsFromIntoBed(predWakeMin), timeMin: predWakeMin, label: '予測起床', icon: '🌅', note: wakeRange },
-    { absMin: toAbsFromIntoBed(predWakeMin) < toAbsFromIntoBed(predBedMin) ? toAbsFromIntoBed(lastMealM) + 1440 : toAbsFromIntoBed(lastMealM) + 1440, timeMin: lastMealM, label: '食事タイムリミット', icon: '🍽️', note: 'これ以降に食事をすると服薬が遅れます' },
+    { absMin: bedAbs, timeMin: predBedMin, label: '予測就寝', icon: '😴', note: `平均潜時 ${avgLat}分` },
+    { absMin: finalWakeAbs, timeMin: predWakeMin, label: '予測起床', icon: '🌅', note: wakeRange },
+    { absMin: lastMealAbs, timeMin: lastMealM, label: '食事タイムリミット', icon: '🍽️', note: 'これ以降に食事をすると服薬が遅れます' },
   ];
 
   // 固定予定を追加
@@ -1231,7 +1239,7 @@ function updateTonightPrediction() {
   let lastDay = -1;
 
   events.forEach(ev => {
-    const dayOffset = Math.floor((intoBedMin + ev.absMin) / 1440);
+    const dayOffset = Math.floor(ev.absMin / 1440);
     if (dayOffset !== lastDay) {
       lastDay = dayOffset;
       const d = new Date(baseDate);
