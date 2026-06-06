@@ -232,6 +232,10 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div class="header">
     <h1>🌙 睡眠カレンダー</h1>
     <div class="header-actions">
+      <button class="icon-btn" onclick="switchToToday()" title="今日の予定">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        今日
+      </button>
       <button class="icon-btn" onclick="openModal('modelModal')" title="AIモデル">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
         AIモデル
@@ -1454,14 +1458,6 @@ document.getElementById('noSleep').addEventListener('change',function(){ documen
 document.getElementById('wentOut').addEventListener('change',function(){ document.getElementById('outDetail').style.display=this.checked?'block':'none'; });
 document.getElementById('mensOn').addEventListener('change',function(){ document.getElementById('mensDetail').style.display=this.checked?'block':'none'; });
 document.getElementById('tdManualModal').addEventListener('click',e=>{ if(e.target===document.getElementById('tdManualModal'))closeTdManual(); });
-
-// ヘッダーに「今日」ボタンを追加
-document.querySelector('.header-actions').insertAdjacentHTML('afterbegin',
-  `<button class="icon-btn" onclick="switchToToday()" title="今日の予定">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    今日
-  </button>`
-);
 
 // ハッシュで自動切り替え
 if(location.hash==='#today') switchToToday();
