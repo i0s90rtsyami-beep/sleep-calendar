@@ -1151,10 +1151,6 @@ function initTonightPanel() {
   wrap.innerHTML = '';
   wrap.appendChild(makeTimeSelect(defaultTime, v => updateTonightPrediction()));
 
-  // 共有固定予定を読み込む
-  tonightFixedEvents = loadSharedFixed();
-  renderTonightFixed();
-
   document.getElementById('tonightOuting').addEventListener('change', updateTonightPrediction);
   updateTonightPrediction();
 }
