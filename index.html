@@ -392,10 +392,11 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div class="panel">
     <div class="panel-title">分析</div>
     <div class="tabs" id="analysisTabs">
-      <button class="tab active" onclick="switchAnalysisTab('weekly',this)">週間睡眠</button>
-      <button class="tab" onclick="switchAnalysisTab('irregular',this)">寝落ち比較</button>
-      <button class="tab" onclick="switchAnalysisTab('outing',this)">外出影響</button>
-      <button class="tab" onclick="switchAnalysisTab('menstrual',this)">月経と睡眠</button>
+<button class="tab active" onclick="switchAnalysisTab('weekly',this)">週間睡眠</button>
+<button class="tab" onclick="switchAnalysisTab('awakening',this)">中途覚醒</button>
+<button class="tab" onclick="switchAnalysisTab('irregular',this)">寝落ち比較</button>
+<button class="tab" onclick="switchAnalysisTab('outing',this)">外出影響</button>
+<button class="tab" onclick="switchAnalysisTab('menstrual',this)">月経と睡眠</button>
     </div>
     <div id="atab-weekly" class="tab-panel active">
       <div class="legend">
@@ -404,6 +405,10 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
         <span class="leg-item"><span class="leg-sq" style="background:#534AB7;width:18px;height:3px;border-radius:0"></span>予測起床</span>
         <span class="leg-item"><span class="leg-sq" style="background:#1D9E75;width:18px;height:3px;border-radius:0"></span>実際の起床</span>
       </div>
+      <div id="atab-awakening" class="tab-panel">
+  <div class="analysis-grid" id="awakeningAnalysis"></div>
+  <div class="chart-wrap" style="margin-top:14px"><canvas id="awakeningChart"></canvas></div>
+</div>
       <div class="chart-wrap"><canvas id="weekChart"></canvas></div>
     </div>
     <div id="atab-irregular" class="tab-panel">
@@ -864,6 +869,7 @@ function switchAnalysisTab(name, btn) {
   btn.classList.add('active');
   ['weekly','irregular','outing','menstrual'].forEach(n=>document.getElementById('atab-'+n).classList.remove('active'));
   document.getElementById('atab-'+name).classList.add('active');
+  if (name === 'awakening') updateAwakeningChart();
   if(name==='irregular') updateIrregularChart();
   if(name==='outing') updateOutingChart();
   if(name==='menstrual') updateMenstrualChart();
@@ -1058,6 +1064,83 @@ function updateMenstrualChart() {
   mChart=new Chart(document.getElementById('mensChart'),{type:'bar',data:{labels:phases.map(p=>names[p]),datasets:[{label:'平均睡眠(h)',data:phases.map(p=>pn[p]?+(ps[p]/pn[p]/60).toFixed(1):null),backgroundColor:['#F4C0D1','#B5D4F4','#9FE1CB','#FAC775'],borderColor:['#D4537E','#378ADD','#1D9E75','#BA7517'],borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'睡眠(h)',font:{size:11}},min:0,max:12,ticks:{font:{size:11}}},x:{ticks:{font:{size:12}}}}}});
 }
 
+  function updateAwakeningChart() {
+  const allKeys = Object.keys(data).filter(k => data[k].blocks && data[k].blocks.length);
+
+  // 全夜の中途覚醒を集計
+  const awData = allKeys.map(k => ({
+    key:   k,
+    aw:    calcAwakenings(data[k].blocks),
+    out:   !!(data[k].outing && data[k].outing.out),
+    phase: getMenstrualPhase(k),
+  }));
+
+  const nights      = awData.length;
+  const awNights    = awData.filter(d => d.aw.count > 0).length;
+  const avgCount    = nights ? awData.reduce((s, d) => s + d.aw.count, 0) / nights : 0;
+  const avgDuration = awNights
+    ? awData.filter(d => d.aw.count > 0).reduce((s, d) => s + d.aw.avgAwake, 0) / awNights
+    : 0;
+
+  // フェーズ別の平均中途覚醒回数
+  const phaseNames  = { menstrual:'生理中', follicular:'卵胞期', ovulation:'排卵期', luteal:'黄体期' };
+  const phaseKeys   = ['menstrual','follicular','ovulation','luteal'];
+  const phaseAvg    = phaseKeys.map(p => {
+    const subset = awData.filter(d => d.phase === p);
+    return subset.length ? subset.reduce((s, d) => s + d.aw.count, 0) / subset.length : null;
+  });
+
+  // サマリーカード
+  document.getElementById('awakeningAnalysis').innerHTML = [
+    { l: '記録日数',           v: nights + '日',                    n: '中途覚醒あり: ' + awNights + '夜' },
+    { l: '平均中途覚醒回数',   v: avgCount.toFixed(2) + '回/夜',    n: '中途覚醒のある夜のみ' },
+    { l: '平均覚醒時間',       v: Math.round(avgDuration) + '分',   n: '1回あたり' },
+    { l: '外出後の中途覚醒',
+      v: (() => {
+        const s = awData.filter(d => d.out);
+        return s.length ? (s.reduce((a, d) => a + d.aw.count, 0) / s.length).toFixed(2) + '回' : '—';
+      })(),
+      n: '外出あり夜の平均'
+    },
+  ].map(x =>
+    `<div class="analysis-card">
+       <div class="analysis-title">${x.l}</div>
+       <div class="analysis-val">${x.v}</div>
+       <div class="analysis-note">${x.n}</div>
+     </div>`
+  ).join('');
+
+  // チャート（月経フェーズ別）
+  let awChart = Chart.getChart('awakeningChart');
+  if (awChart) awChart.destroy();
+
+  new Chart(document.getElementById('awakeningChart'), {
+    type: 'bar',
+    data: {
+      labels: phaseKeys.map(p => phaseNames[p]),
+      datasets: [{
+        label: '平均中途覚醒回数',
+        data:  phaseAvg,
+        backgroundColor: ['#F4C0D1','#B5D4F4','#9FE1CB','#FAC775'],
+        borderColor:     ['#D4537E','#378ADD','#1D9E75','#BA7517'],
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          title: { display: true, text: '平均中途覚醒回数（回）', font: { size: 11 } },
+          min: 0,
+          ticks: { font: { size: 11 } },
+        },
+        x: { ticks: { font: { size: 12 } } },
+      },
+    },
+  });
+}
 
 // ── Shared Fixed Events ───────────────────────────────
 const FIXED_KEY = 'shared-fixed-events';
@@ -1458,6 +1541,36 @@ document.getElementById('tdManualModal').addEventListener('click',e=>{ if(e.targ
 // ハッシュで自動切り替え
 if(location.hash==='#today') switchToToday();
 window.addEventListener('hashchange',()=>{ if(location.hash==='#today')switchToToday(); else switchToCalendar(); });
+
+  // ── 中途覚醒の計算 ─────────────────────────────────────
+function calcAwakenings(blocks) {
+  if (!blocks || !blocks.length) return { count: 0, totalAwake: 0, avgAwake: 0, gaps: [] };
+
+  // bed時刻でソート（日またぎ対応：0〜5時は +1440 して後ろへ）
+  const sorted = [...blocks]
+    .filter(b => b.bed && b.wake)
+    .sort((a, b) => {
+      const am = t2m(a.bed), bm = t2m(b.bed);
+      return (am < 360 ? am + 1440 : am) - (bm < 360 ? bm + 1440 : bm);
+    });
+
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prevWake = t2m(sorted[i - 1].wake);
+    const nextBed  = t2m(sorted[i].bed);
+    const gap = dur(prevWake, nextBed);
+    // 5分〜120分のギャップだけを「中途覚醒」とみなす
+    if (gap >= 5 && gap < 120) gaps.push(gap);
+  }
+
+  const totalAwake = gaps.reduce((s, v) => s + v, 0);
+  return {
+    count:      gaps.length,
+    totalAwake: totalAwake,
+    avgAwake:   gaps.length ? Math.round(totalAwake / gaps.length) : 0,
+    gaps:       gaps,
+  };
+}
 </script>
 </body>
 </html>
