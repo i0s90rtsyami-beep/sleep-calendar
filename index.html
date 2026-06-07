@@ -405,6 +405,8 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
         <span class="leg-item"><span class="leg-sq" style="background:#534AB7;width:18px;height:3px;border-radius:0"></span>予測起床</span>
         <span class="leg-item"><span class="leg-sq" style="background:#1D9E75;width:18px;height:3px;border-radius:0"></span>実際の起床</span>
       </div>
+      <div class="chart-wrap"><canvas id="weekChart"></canvas></div>
+    </div> 
       <div id="atab-awakening" class="tab-panel">
   <div class="analysis-grid" id="awakeningAnalysis"></div>
   <div class="chart-wrap" style="margin-top:14px"><canvas id="awakeningChart"></canvas></div>
@@ -867,7 +869,7 @@ function switchAnalysisTab(name, btn) {
   activeATab=name;
   document.querySelectorAll('#analysisTabs .tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
-  ['weekly','irregular','outing','menstrual'].forEach(n=>document.getElementById('atab-'+n).classList.remove('active'));
+  ['weekly','awakening','irregular','outing','menstrual'].forEach(n=>document.getElementById('atab-'+n).classList.remove('active'));
   document.getElementById('atab-'+name).classList.add('active');
   if (name === 'awakening') updateAwakeningChart();
   if(name==='irregular') updateIrregularChart();
