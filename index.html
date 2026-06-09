@@ -440,16 +440,30 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
 <!-- Model Modal -->
 <div class="modal-overlay" id="modelModal">
   <div class="modal">
-    <h2>🤖 LightGBMモデルの読み込み</h2>
-    <p class="modal-desc">PythonスクリプトでエクスポートしたJSONを読み込むと、あなたのデータで学習した予測モデルが使えます。</p>
-    <div class="model-upload-area" onclick="document.getElementById('modelFileInput').click()">
-      📂 sleep_model.json をタップして選択
-      <input type="file" id="modelFileInput" accept=".json" style="display:none" onchange="loadModelFile(this)">
+  <h2>🤖 LightGBMモデルの読み込み</h2>
+  <p class="modal-desc">Pythonスクリプトで生成した2つのモデルをそれぞれ読み込んでください。</p>
+
+  <div style="margin-top:12px">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">😴 就寝時刻予測モデル（sleep_bedtime_model.json）</div>
+    <div class="model-upload-area" onclick="document.getElementById('modelFileInputBed').click()">
+      📂 sleep_bedtime_model.json を選択
+      <input type="file" id="modelFileInputBed" accept=".json" style="display:none"
+             onchange="loadModelFile(this,'bed_time')">
     </div>
-    <div id="modelStatusDiv" class="model-status none">モデル未読み込み</div>
-    <div class="modal-actions">
-      <button class="modal-btn" onclick="closeModal('modelModal')">閉じる</button>
+  </div>
+
+  <div style="margin-top:12px">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">🔔 中途覚醒予測モデル（sleep_awakening_model.json）</div>
+    <div class="model-upload-area" onclick="document.getElementById('modelFileInputAw').click()">
+      📂 sleep_awakening_model.json を選択
+      <input type="file" id="modelFileInputAw" accept=".json" style="display:none"
+             onchange="loadModelFile(this,'awakening')">
     </div>
+  </div>
+
+  <div id="modelStatusDiv" class="model-status none" style="margin-top:10px">モデル未読み込み</div>
+  <div class="modal-actions">
+    <button class="modal-btn" onclick="closeModal('modelModal')">閉じる</button>
   </div>
 </div>
 
@@ -539,7 +553,8 @@ if (typeof Chart === 'undefined') {
   window.Chart = function() { return { destroy: ()=>{}, data:{}, update:()=>{} }; };
   window.Chart.getChart = ()=>null;
 }
-let lgbmModel = null;
+let lgbmModel     = null;  // 就寝時刻予測モデル (target: "bed_time")
+let lgbmAwModel   = null;  // 中途覚醒予測モデル  (target: "awakening")  
 
 function lgbmPredict(trees, features, averageOutput) {
   let sum = 0;
@@ -569,16 +584,25 @@ function lgbmPredict(trees, features, averageOutput) {
   return averageOutput ? sum / trees.length : sum;
 }
 
-function loadModelFile(input) {
+function loadModelFile(input, modelType) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      lgbmModel = JSON.parse(e.target.result);
-      localStorage.setItem('lgbm-model-v1', e.target.result);
+      const parsed = JSON.parse(e.target.result);
+      const target = parsed.target || '';
+      // target フィールドで自動判別、引数 modelType でも上書き可能
+      if (target === 'awakening' || modelType === 'awakening') {
+        lgbmAwModel = parsed;
+        localStorage.setItem('lgbm-aw-model-v1', e.target.result);
+        showToast('中途覚醒モデルを読み込みました ✓');
+      } else {
+        lgbmModel = parsed;
+        localStorage.setItem('lgbm-model-v1', e.target.result);
+        showToast('就寝時刻モデルを読み込みました ✓');
+      }
       updateModelStatus();
-      showToast('モデルを読み込みました ✓');
       renderPrediction();
     } catch(err) {
       showToast('モデルの読み込みに失敗しました');
@@ -589,14 +613,19 @@ function loadModelFile(input) {
 
 function updateModelStatus() {
   const el = document.getElementById('modelStatusDiv');
-  if (lgbmModel) {
+  const lines = [];
+  if (lgbmModel)   lines.push(`✓ 就寝時刻モデル（ツリー数: ${lgbmModel.trees.length}）`);
+  if (lgbmAwModel) lines.push(`✓ 中途覚醒モデル（ツリー数: ${lgbmAwModel.trees.length}）`);
+  if (lines.length) {
     el.className = 'model-status loaded';
-    el.textContent = `✓ モデル読み込み済み（ツリー数: ${lgbmModel.trees.length}）`;
+    el.innerHTML = lines.join('<br>');
   } else {
     el.className = 'model-status none';
     el.textContent = 'モデル未読み込み';
   }
-}
+}  
+
+
 
 
   // ✅ 新しい（13次元・Pythonスクリプトと一致）
@@ -696,6 +725,7 @@ let activeATab = 'weekly';
 function load() {
   try { const s = localStorage.getItem(STORAGE_KEY); if (s) data = JSON.parse(s); } catch(e) {}
   try { const m = localStorage.getItem('lgbm-model-v1'); if (m) lgbmModel = JSON.parse(m); } catch(e) {}
+  try { const m = localStorage.getItem('lgbm-aw-model-v1'); if (m) lgbmAwModel = JSON.parse(m); } catch(e) {}
 }
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) { showToast('保存に失敗しました'); }
