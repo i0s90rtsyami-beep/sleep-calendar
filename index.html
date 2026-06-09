@@ -598,13 +598,90 @@ function updateModelStatus() {
   }
 }
 
+
+  // ✅ 新しい（13次元・Pythonスクリプトと一致）
 function predictNextBedTime(blocks, isOuting, isNextDayOuting, isMenstrual, menstrualDay) {
   if (!lgbmModel) return null;
   const last = lastMainBlock(blocks);
   if (!last || !last.bed || !last.wake) return null;
-  const bedM = t2m(last.bed), wakeM = t2m(last.wake);
-  let sleepDur = wakeM - bedM; if (sleepDur < 0) sleepDur += 1440;
-  const features = [sleepDur, isOuting ? 1 : 0, isNextDayOuting ? 1 : 0, isMenstrual ? 1 : 0, menstrualDay || 0];
+
+  const bedM  = t2m(last.bed);
+  const wakeM = t2m(last.wake);
+  const mainDur  = dur(bedM, wakeM);
+  const subDur   = totalSubMin(blocks);
+  const totalDur = mainDur + subDur;
+
+  // 曜日（selDate があれば使う、なければ今日）
+  const dateStr  = selDate || todayStr();
+  const dow      = new Date(dateStr + 'T00:00:00').getDay(); // 0=日〜6=土
+  const dowMon   = (dow + 6) % 7; // 0=月〜6=日（Pythonのweekday()に合わせる）
+
+  // 月経フェーズ
+  const phaseMap = { menstrual: 1, follicular: 2, ovulation: 3, luteal: 4 };
+  const phaseStr = getMenstrualPhase(dateStr);
+  const phase    = phaseMap[phaseStr] || 0;
+
+  // 次回生理まで日数（簡易：フェーズがあれば周期から逆算、なければ -1）
+  const cycle    = getMenstrualCycles() || 28;
+  const starts   = Object.keys(data)
+    .filter(k => data[k].menstrual && data[k].menstrual.on && data[k].menstrual.day == 1)
+    .sort();
+  const lastStart = starts.filter(k => k <= dateStr).pop();
+  let daysToP = -1;
+  if (lastStart) {
+    const diff = Math.round((new Date(dateStr + 'T00:00:00') - new Date(lastStart + 'T00:00:00')) / 86400000);
+    daysToP = cycle - diff;
+  }
+
+  // 前日データ
+  const prevDate  = (() => { const d = new Date(dateStr + 'T00:00:00'); d.setDate(d.getDate() - 1); return d.toISOString().slice(0,10); })();
+  const prevRec   = data[prevDate];
+  const prevBlocks = prevRec && prevRec.blocks || [];
+  const prevMain  = lastMainBlock(prevBlocks);
+  const prevBedM  = prevMain ? t2m(prevMain.bed)  : bedM;
+  const prevSlpDur = prevMain ? dur(t2m(prevMain.bed), t2m(prevMain.wake)) : totalDur;
+  const prevAwCnt = (() => {
+    if (!prevBlocks.length) return 0;
+    const sorted = [...prevBlocks].filter(b => b.bed && b.wake).sort((a, b) => {
+      const am = t2m(a.bed), bm = t2m(b.bed);
+      return (am < 360 ? am+1440 : am) - (bm < 360 ? bm+1440 : bm);
+    });
+    let cnt = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      const g = dur(t2m(sorted[i-1].wake), t2m(sorted[i].bed));
+      if (g >= 5 && g < 120) cnt++;
+    }
+    return cnt;
+  })();
+
+  // 外出時間帯・活動量
+  const dayRec     = data[dateStr] || {};
+  const outing     = dayRec.outing || {};
+  const timeMap    = { '': 0, morning: 1, afternoon: 2, evening: 3, allday: 4 };
+  const actMap     = { '': 0, light: 1, moderate: 2, heavy: 3 };
+  const outingTime = timeMap[outing.time || ''] || 0;
+  const outingAct  = actMap[outing.activity || ''] || 0;
+
+  // 13次元特徴量（Pythonスクリプトの FEATURE_NAMES と同順）
+  // bed_m, sleep_dur, main_sleep_dur, is_outing, outing_time, outing_activity,
+  // menstrual_phase, days_to_next_period, day_of_week,
+  // prev_bed_m, prev_sleep_dur, prev_awakening_count, is_next_day_outing
+  const features = [
+    bedM,                      //  0 bed_m
+    totalDur,                  //  1 sleep_dur
+    mainDur,                   //  2 main_sleep_dur
+    isOuting ? 1 : 0,          //  3 is_outing
+    outingTime,                //  4 outing_time
+    outingAct,                 //  5 outing_activity
+    phase,                     //  6 menstrual_phase
+    daysToP,                   //  7 days_to_next_period
+    dowMon,                    //  8 day_of_week
+    prevBedM,                  //  9 prev_bed_m
+    prevSlpDur,                // 10 prev_sleep_dur
+    prevAwCnt,                 // 11 prev_awakening_count
+    isNextDayOuting ? 1 : 0,   // 12 is_next_day_outing
+  ];
+
   const predMin = lgbmPredict(lgbmModel.trees, features, lgbmModel.average_output || false);
   return predMin;
 }
