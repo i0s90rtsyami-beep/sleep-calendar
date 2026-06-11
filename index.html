@@ -232,10 +232,6 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div class="header">
     <h1>🌙 睡眠カレンダー</h1>
     <div class="header-actions">
-      <button class="icon-btn" onclick="switchToToday()" title="今日の予定">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        今日
-      </button>
       <button class="icon-btn" onclick="openModal('modelModal')" title="AIモデル">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
         AIモデル
@@ -251,9 +247,9 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
     </div>
   </div>
 
-  <!-- 次の睡眠パネル -->
+  <!-- 今夜の予測パネル -->
   <div class="tonight-panel">
-    <div class="tonight-title">🛏️ 次の睡眠</div>
+    <div class="tonight-title">🕯️ 今夜の予測</div>
     <div class="tonight-grid">
       <div>
         <div class="tonight-label">就床時刻</div>
@@ -267,6 +263,11 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
         </div>
       </div>
     </div>
+    <div style="margin-bottom:10px">
+      <div class="tonight-label" style="margin-bottom:6px">固定予定（今日画面と共有）</div>
+      <div id="tonightFixedList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+      <button class="add-btn" onclick="addTonightFixed()">＋ 固定予定を追加</button>
+    </div>
     <div id="tonightResult" style="display:none">
       <div class="tonight-result">
         <div class="tonight-label">予測就寝時刻</div>
@@ -278,6 +279,20 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
           <div class="tonight-sub" id="tonightWakeSub"></div>
         </div>
       </div>
+      <div class="tonight-sched" id="tonightSched"></div>
+    </div>
+  </div>
+      <div class="tonight-result">
+        <div class="tonight-label">予測就寝時刻</div>
+        <div class="tonight-time" id="tonightBedTime">—</div>
+        <div class="tonight-sub" id="tonightBedSub"></div>
+        <div style="margin-top:10px">
+          <div class="tonight-label">予測起床時刻</div>
+          <div class="tonight-time" id="tonightWakeTime">—</div>
+          <div class="tonight-sub" id="tonightWakeSub"></div>
+        </div>
+      </div>
+      <div class="tonight-sched" id="tonightSched"></div>
     </div>
   </div>
 
@@ -392,11 +407,10 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div class="panel">
     <div class="panel-title">分析</div>
     <div class="tabs" id="analysisTabs">
-<button class="tab active" onclick="switchAnalysisTab('weekly',this)">週間睡眠</button>
-<button class="tab" onclick="switchAnalysisTab('awakening',this)">中途覚醒</button>
-<button class="tab" onclick="switchAnalysisTab('irregular',this)">寝落ち比較</button>
-<button class="tab" onclick="switchAnalysisTab('outing',this)">外出影響</button>
-<button class="tab" onclick="switchAnalysisTab('menstrual',this)">月経と睡眠</button>
+      <button class="tab active" onclick="switchAnalysisTab('weekly',this)">週間睡眠</button>
+      <button class="tab" onclick="switchAnalysisTab('irregular',this)">寝落ち比較</button>
+      <button class="tab" onclick="switchAnalysisTab('outing',this)">外出影響</button>
+      <button class="tab" onclick="switchAnalysisTab('menstrual',this)">月経と睡眠</button>
     </div>
     <div id="atab-weekly" class="tab-panel active">
       <div class="legend">
@@ -406,11 +420,7 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
         <span class="leg-item"><span class="leg-sq" style="background:#1D9E75;width:18px;height:3px;border-radius:0"></span>実際の起床</span>
       </div>
       <div class="chart-wrap"><canvas id="weekChart"></canvas></div>
-    </div> 
-      <div id="atab-awakening" class="tab-panel">
-  <div class="analysis-grid" id="awakeningAnalysis"></div>
-  <div class="chart-wrap" style="margin-top:14px"><canvas id="awakeningChart"></canvas></div>
-     </div>
+    </div>
     <div id="atab-irregular" class="tab-panel">
       <div class="analysis-grid" id="irregularAnalysis"></div>
       <div class="chart-wrap" style="margin-top:14px"><canvas id="irregularChart"></canvas></div>
@@ -438,32 +448,17 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
 <!-- Model Modal -->
 <div class="modal-overlay" id="modelModal">
   <div class="modal">
-  <h2>🤖 LightGBMモデルの読み込み</h2>
-  <p class="modal-desc">Pythonスクリプトで生成した2つのモデルをそれぞれ読み込んでください。</p>
-
-  <div style="margin-top:12px">
-    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">😴 就寝時刻予測モデル（sleep_bedtime_model.json）</div>
-    <div class="model-upload-area" onclick="document.getElementById('modelFileInputBed').click()">
-      📂 sleep_bedtime_model.json を選択
-      <input type="file" id="modelFileInputBed" accept=".json" style="display:none"
-             onchange="loadModelFile(this,'bed_time')">
+    <h2>🤖 LightGBMモデルの読み込み</h2>
+    <p class="modal-desc">PythonスクリプトでエクスポートしたJSONを読み込むと、あなたのデータで学習した予測モデルが使えます。</p>
+    <div class="model-upload-area" onclick="document.getElementById('modelFileInput').click()">
+      📂 sleep_model.json をタップして選択
+      <input type="file" id="modelFileInput" accept=".json" style="display:none" onchange="loadModelFile(this)">
+    </div>
+    <div id="modelStatusDiv" class="model-status none">モデル未読み込み</div>
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="closeModal('modelModal')">閉じる</button>
     </div>
   </div>
-
-  <div style="margin-top:12px">
-    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">🔔 中途覚醒予測モデル（sleep_awakening_model.json）</div>
-    <div class="model-upload-area" onclick="document.getElementById('modelFileInputAw').click()">
-      📂 sleep_awakening_model.json を選択
-      <input type="file" id="modelFileInputAw" accept=".json" style="display:none"
-             onchange="loadModelFile(this,'awakening')">
-    </div>
-  </div>
-
-  <div id="modelStatusDiv" class="model-status none" style="margin-top:10px">モデル未読み込み</div>
-  <div class="modal-actions">
-    <button class="modal-btn" onclick="closeModal('modelModal')">閉じる</button>
-  </div>
-</div>
 </div>
 
 <!-- Export Modal -->
@@ -505,26 +500,8 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div class="today-list" id="tdList"></div>
   <div class="today-bottom">
     <button class="today-back-btn" onclick="switchToCalendar()">← カレンダー</button>
-    <button class="today-add-btn" onclick="openTdFixed()">📌 固定予定</button>
     <button class="today-add-btn" onclick="openTdManual()">＋ 手動追加</button>
     <div class="today-sync"><span class="today-sync-dot" id="tdSyncDot"></span><span id="tdSyncLbl">確認中</span></div>
-  </div>
-</div>
-
-<!-- Today fixed events modal -->
-<div class="today-manual-modal" id="tdFixedModal">
-  <div class="today-manual-inner">
-    <div class="today-manual-title">
-      📌 固定予定
-      <button style="background:none;border:none;color:#888480;font-size:20px;cursor:pointer" onclick="closeTdFixed()">×</button>
-    </div>
-    <div class="today-manual-desc">今日の固定予定を入力してください。次の睡眠欄とも共有されます。</div>
-    <div id="tdFixedList"></div>
-    <button class="today-manual-btn" onclick="addTdFixedRow()" style="width:100%;margin-bottom:12px">＋ 追加</button>
-    <div class="today-manual-btns">
-      <button class="today-manual-btn" onclick="closeTdFixed()">キャンセル</button>
-      <button class="today-manual-btn primary" onclick="saveTdFixed()">保存して反映</button>
-    </div>
   </div>
 </div>
 
@@ -552,8 +529,7 @@ if (typeof Chart === 'undefined') {
   window.Chart = function() { return { destroy: ()=>{}, data:{}, update:()=>{} }; };
   window.Chart.getChart = ()=>null;
 }
-let lgbmModel     = null;  // 就寝時刻予測モデル (target: "bed_time")
-let lgbmAwModel   = null;  // 中途覚醒予測モデル  (target: "awakening")  
+let lgbmModel = null;
 
 function lgbmPredict(trees, features, averageOutput) {
   let sum = 0;
@@ -583,25 +559,16 @@ function lgbmPredict(trees, features, averageOutput) {
   return averageOutput ? sum / trees.length : sum;
 }
 
-function loadModelFile(input, modelType) {
+function loadModelFile(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const parsed = JSON.parse(e.target.result);
-      const target = parsed.target || '';
-      // target フィールドで自動判別、引数 modelType でも上書き可能
-      if (target === 'awakening' || modelType === 'awakening') {
-        lgbmAwModel = parsed;
-        localStorage.setItem('lgbm-aw-model-v1', e.target.result);
-        showToast('中途覚醒モデルを読み込みました ✓');
-      } else {
-        lgbmModel = parsed;
-        localStorage.setItem('lgbm-model-v1', e.target.result);
-        showToast('就寝時刻モデルを読み込みました ✓');
-      }
+      lgbmModel = JSON.parse(e.target.result);
+      localStorage.setItem('lgbm-model-v1', e.target.result);
       updateModelStatus();
+      showToast('モデルを読み込みました ✓');
       renderPrediction();
     } catch(err) {
       showToast('モデルの読み込みに失敗しました');
@@ -612,104 +579,22 @@ function loadModelFile(input, modelType) {
 
 function updateModelStatus() {
   const el = document.getElementById('modelStatusDiv');
-  const lines = [];
-  if (lgbmModel)   lines.push(`✓ 就寝時刻モデル（ツリー数: ${lgbmModel.trees.length}）`);
-  if (lgbmAwModel) lines.push(`✓ 中途覚醒モデル（ツリー数: ${lgbmAwModel.trees.length}）`);
-  if (lines.length) {
+  if (lgbmModel) {
     el.className = 'model-status loaded';
-    el.innerHTML = lines.join('<br>');
+    el.textContent = `✓ モデル読み込み済み（ツリー数: ${lgbmModel.trees.length}）`;
   } else {
     el.className = 'model-status none';
     el.textContent = 'モデル未読み込み';
   }
-}  
+}
 
-
-
-
-  // ✅ 新しい（13次元・Pythonスクリプトと一致）
 function predictNextBedTime(blocks, isOuting, isNextDayOuting, isMenstrual, menstrualDay) {
   if (!lgbmModel) return null;
   const last = lastMainBlock(blocks);
   if (!last || !last.bed || !last.wake) return null;
-
-  const bedM  = t2m(last.bed);
-  const wakeM = t2m(last.wake);
-  const mainDur  = dur(bedM, wakeM);
-  const subDur   = totalSubMin(blocks);
-  const totalDur = mainDur + subDur;
-
-  // 曜日（selDate があれば使う、なければ今日）
-  const dateStr  = selDate || todayStr();
-  const dow      = new Date(dateStr + 'T00:00:00').getDay(); // 0=日〜6=土
-  const dowMon   = (dow + 6) % 7; // 0=月〜6=日（Pythonのweekday()に合わせる）
-
-  // 月経フェーズ
-  const phaseMap = { menstrual: 1, follicular: 2, ovulation: 3, luteal: 4 };
-  const phaseStr = getMenstrualPhase(dateStr);
-  const phase    = phaseMap[phaseStr] || 0;
-
-  // 次回生理まで日数（簡易：フェーズがあれば周期から逆算、なければ -1）
-  const cycle    = getMenstrualCycles() || 28;
-  const starts   = Object.keys(data)
-    .filter(k => data[k].menstrual && data[k].menstrual.on && data[k].menstrual.day == 1)
-    .sort();
-  const lastStart = starts.filter(k => k <= dateStr).pop();
-  let daysToP = -1;
-  if (lastStart) {
-    const diff = Math.round((new Date(dateStr + 'T00:00:00') - new Date(lastStart + 'T00:00:00')) / 86400000);
-    daysToP = cycle - diff;
-  }
-
-  // 前日データ
-  const prevDate  = (() => { const d = new Date(dateStr + 'T00:00:00'); d.setDate(d.getDate() - 1); return d.toISOString().slice(0,10); })();
-  const prevRec   = data[prevDate];
-  const prevBlocks = prevRec && prevRec.blocks || [];
-  const prevMain  = lastMainBlock(prevBlocks);
-  const prevBedM  = prevMain ? t2m(prevMain.bed)  : bedM;
-  const prevSlpDur = prevMain ? dur(t2m(prevMain.bed), t2m(prevMain.wake)) : totalDur;
-  const prevAwCnt = (() => {
-    if (!prevBlocks.length) return 0;
-    const sorted = [...prevBlocks].filter(b => b.bed && b.wake).sort((a, b) => {
-      const am = t2m(a.bed), bm = t2m(b.bed);
-      return (am < 360 ? am+1440 : am) - (bm < 360 ? bm+1440 : bm);
-    });
-    let cnt = 0;
-    for (let i = 1; i < sorted.length; i++) {
-      const g = dur(t2m(sorted[i-1].wake), t2m(sorted[i].bed));
-      if (g >= 5 && g < 120) cnt++;
-    }
-    return cnt;
-  })();
-
-  // 外出時間帯・活動量
-  const dayRec     = data[dateStr] || {};
-  const outing     = dayRec.outing || {};
-  const timeMap    = { '': 0, morning: 1, afternoon: 2, evening: 3, allday: 4 };
-  const actMap     = { '': 0, light: 1, moderate: 2, heavy: 3 };
-  const outingTime = timeMap[outing.time || ''] || 0;
-  const outingAct  = actMap[outing.activity || ''] || 0;
-
-  // 13次元特徴量（Pythonスクリプトの FEATURE_NAMES と同順）
-  // bed_m, sleep_dur, main_sleep_dur, is_outing, outing_time, outing_activity,
-  // menstrual_phase, days_to_next_period, day_of_week,
-  // prev_bed_m, prev_sleep_dur, prev_awakening_count, is_next_day_outing
-  const features = [
-    bedM,                      //  0 bed_m
-    totalDur,                  //  1 sleep_dur
-    mainDur,                   //  2 main_sleep_dur
-    isOuting ? 1 : 0,          //  3 is_outing
-    outingTime,                //  4 outing_time
-    outingAct,                 //  5 outing_activity
-    phase,                     //  6 menstrual_phase
-    daysToP,                   //  7 days_to_next_period
-    dowMon,                    //  8 day_of_week
-    prevBedM,                  //  9 prev_bed_m
-    prevSlpDur,                // 10 prev_sleep_dur
-    prevAwCnt,                 // 11 prev_awakening_count
-    isNextDayOuting ? 1 : 0,   // 12 is_next_day_outing
-  ];
-
+  const bedM = t2m(last.bed), wakeM = t2m(last.wake);
+  let sleepDur = wakeM - bedM; if (sleepDur < 0) sleepDur += 1440;
+  const features = [sleepDur, isOuting ? 1 : 0, isNextDayOuting ? 1 : 0, isMenstrual ? 1 : 0, menstrualDay || 0];
   const predMin = lgbmPredict(lgbmModel.trees, features, lgbmModel.average_output || false);
   return predMin;
 }
@@ -724,7 +609,6 @@ let activeATab = 'weekly';
 function load() {
   try { const s = localStorage.getItem(STORAGE_KEY); if (s) data = JSON.parse(s); } catch(e) {}
   try { const m = localStorage.getItem('lgbm-model-v1'); if (m) lgbmModel = JSON.parse(m); } catch(e) {}
-  try { const m = localStorage.getItem('lgbm-aw-model-v1'); if (m) lgbmAwModel = JSON.parse(m); } catch(e) {}
 }
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) { showToast('保存に失敗しました'); }
@@ -904,20 +788,17 @@ function renderTimeline(blocks) {
 
 function renderPrediction() {
   const box=document.getElementById('predBox');
-  if(!selDate){ box.style.display='none'; return; }
-  const dayData=data[selDate]||null;
+  const dayData=selDate?data[selDate]:null;
   const isOuting=!!(dayData&&dayData.outing&&dayData.outing.out);
   const isMenstrual=!!(dayData&&dayData.menstrual&&dayData.menstrual.on);
   const menstrualDay=isMenstrual?(dayData.menstrual.day||0):0;
   const isNextDayOuting=selDate?isPreOutingDay(selDate):false;
   const lgbmResult=predictNextBedTime(currentBlocks, isOuting, isNextDayOuting, isMenstrual, menstrualDay);
 
-  box.style.display='block';
-
-  const lgbmSec=document.getElementById('lgbmSection');
-  if(lgbmResult===null){
-    lgbmSec.style.display='none';
-  } else {
+  if(lgbmResult===null){box.style.display='none';}
+  else {
+    box.style.display='block';
+    const lgbmSec=document.getElementById('lgbmSection');
     lgbmSec.style.display='block';
     const predMin=Math.round(lgbmResult)%1440;
     document.getElementById('lgbmPred').textContent=m2t(((predMin%1440)+1440)%1440);
@@ -975,9 +856,8 @@ function switchAnalysisTab(name, btn) {
   activeATab=name;
   document.querySelectorAll('#analysisTabs .tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
-  ['weekly','awakening','irregular','outing','menstrual'].forEach(n=>document.getElementById('atab-'+n).classList.remove('active'));
+  ['weekly','irregular','outing','menstrual'].forEach(n=>document.getElementById('atab-'+n).classList.remove('active'));
   document.getElementById('atab-'+name).classList.add('active');
-  if (name === 'awakening') updateAwakeningChart();
   if(name==='irregular') updateIrregularChart();
   if(name==='outing') updateOutingChart();
   if(name==='menstrual') updateMenstrualChart();
@@ -1172,83 +1052,6 @@ function updateMenstrualChart() {
   mChart=new Chart(document.getElementById('mensChart'),{type:'bar',data:{labels:phases.map(p=>names[p]),datasets:[{label:'平均睡眠(h)',data:phases.map(p=>pn[p]?+(ps[p]/pn[p]/60).toFixed(1):null),backgroundColor:['#F4C0D1','#B5D4F4','#9FE1CB','#FAC775'],borderColor:['#D4537E','#378ADD','#1D9E75','#BA7517'],borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'睡眠(h)',font:{size:11}},min:0,max:12,ticks:{font:{size:11}}},x:{ticks:{font:{size:12}}}}}});
 }
 
-  function updateAwakeningChart() {
-  const allKeys = Object.keys(data).filter(k => data[k].blocks && data[k].blocks.length);
-
-  // 全夜の中途覚醒を集計
-  const awData = allKeys.map(k => ({
-    key:   k,
-    aw:    calcAwakenings(data[k].blocks),
-    out:   !!(data[k].outing && data[k].outing.out),
-    phase: getMenstrualPhase(k),
-  }));
-
-  const nights      = awData.length;
-  const awNights    = awData.filter(d => d.aw.count > 0).length;
-  const avgCount    = nights ? awData.reduce((s, d) => s + d.aw.count, 0) / nights : 0;
-  const avgDuration = awNights
-    ? awData.filter(d => d.aw.count > 0).reduce((s, d) => s + d.aw.avgAwake, 0) / awNights
-    : 0;
-
-  // フェーズ別の平均中途覚醒回数
-  const phaseNames  = { menstrual:'生理中', follicular:'卵胞期', ovulation:'排卵期', luteal:'黄体期' };
-  const phaseKeys   = ['menstrual','follicular','ovulation','luteal'];
-  const phaseAvg    = phaseKeys.map(p => {
-    const subset = awData.filter(d => d.phase === p);
-    return subset.length ? subset.reduce((s, d) => s + d.aw.count, 0) / subset.length : null;
-  });
-
-  // サマリーカード
-  document.getElementById('awakeningAnalysis').innerHTML = [
-    { l: '記録日数',           v: nights + '日',                    n: '中途覚醒あり: ' + awNights + '夜' },
-    { l: '平均中途覚醒回数',   v: avgCount.toFixed(2) + '回/夜',    n: '中途覚醒のある夜のみ' },
-    { l: '平均覚醒時間',       v: Math.round(avgDuration) + '分',   n: '1回あたり' },
-    { l: '外出後の中途覚醒',
-      v: (() => {
-        const s = awData.filter(d => d.out);
-        return s.length ? (s.reduce((a, d) => a + d.aw.count, 0) / s.length).toFixed(2) + '回' : '—';
-      })(),
-      n: '外出あり夜の平均'
-    },
-  ].map(x =>
-    `<div class="analysis-card">
-       <div class="analysis-title">${x.l}</div>
-       <div class="analysis-val">${x.v}</div>
-       <div class="analysis-note">${x.n}</div>
-     </div>`
-  ).join('');
-
-  // チャート（月経フェーズ別）
-  let awChart = Chart.getChart('awakeningChart');
-  if (awChart) awChart.destroy();
-
-  new Chart(document.getElementById('awakeningChart'), {
-    type: 'bar',
-    data: {
-      labels: phaseKeys.map(p => phaseNames[p]),
-      datasets: [{
-        label: '平均中途覚醒回数',
-        data:  phaseAvg,
-        backgroundColor: ['#F4C0D1','#B5D4F4','#9FE1CB','#FAC775'],
-        borderColor:     ['#D4537E','#378ADD','#1D9E75','#BA7517'],
-        borderWidth: 1,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: {
-          title: { display: true, text: '平均中途覚醒回数（回）', font: { size: 11 } },
-          min: 0,
-          ticks: { font: { size: 11 } },
-        },
-        x: { ticks: { font: { size: 12 } } },
-      },
-    },
-  });
-}
 
 // ── Shared Fixed Events ───────────────────────────────
 const FIXED_KEY = 'shared-fixed-events';
@@ -1342,6 +1145,10 @@ function initTonightPanel() {
   wrap.innerHTML = '';
   wrap.appendChild(makeTimeSelect(defaultTime, v => updateTonightPrediction()));
 
+  // 共有固定予定を読み込む
+  tonightFixedEvents = loadSharedFixed();
+  renderTonightFixed();
+
   document.getElementById('tonightOuting').addEventListener('change', updateTonightPrediction);
   updateTonightPrediction();
 }
@@ -1357,45 +1164,104 @@ function updateTonightPrediction() {
   const avgLat = getAvgLatency();
   const predBedMin = (intoBedMin + avgLat) % 1440;
 
+  // 就寝→起床：統計学習で予測
+  const fakeBlock = [{ noIntoBed: false, intoBed: m2t(intoBedMin), bed: m2t(predBedMin), wake: m2t((predBedMin + 480) % 1440) }];
+
+  // 今日・翌日の日付キーを取得（就床時刻が0〜6時なら翌日扱い）
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
   const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowKey = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth()+1)}-${pad(tomorrow.getDate())}`;
   const dateKey = intoBedMin < 360 ? tomorrowKey : todayKey;
 
+  // 当日の月経データを取得
   const dayData = data[dateKey] || {};
   const isMenstrual = !!(dayData.menstrual && dayData.menstrual.on);
   const menstrualDay = isMenstrual ? (dayData.menstrual.day || 0) : 0;
   const isNextDayOuting = isPreOutingDay(dateKey);
-  const fakeBlock = [{ noIntoBed: false, intoBed: m2t(intoBedMin), bed: m2t(predBedMin), wake: m2t((predBedMin + 480) % 1440) }];
+
   const statResult = predictWake(fakeBlock, dateKey);
   const predWakeMin = statResult ? statResult.predM : (predBedMin + 450) % 1440;
 
-  // 表示更新（就寝・起床のみ）
+  // LightGBMは「就寝時刻から翌日就寝」を予測するものなので今夜は統計学習のみ使用
+
+  // 表示更新
   document.getElementById('tonightResult').style.display = 'block';
   document.getElementById('tonightBedTime').textContent = m2t(predBedMin);
   document.getElementById('tonightBedSub').textContent = `就床から約${avgLat}分後（平均潜時）`;
   document.getElementById('tonightWakeTime').textContent = m2t(predWakeMin);
+
   const rm = statResult ? Math.round(statResult.stdDev * 0.7) : 45;
   const wakeRange = `${m2t((predWakeMin - rm + 1440) % 1440)} 〜 ${m2t((predWakeMin + rm + 1440) % 1440)}`;
   let wakeSub = `（${wakeRange}）`;
   if (statResult) wakeSub += ` ／ 就寝${m2t(predBedMin)} ＋ ${(statResult.sleepDuration/60).toFixed(1)}h`;
   document.getElementById('tonightWakeSub').textContent = wakeSub;
 
-  // 今日画面用にlocalStorageへ保存（就床・就寝・起床のみ）
-  function toAbsFromIntoBed(m) { let d=m-intoBedMin; if(d<-30)d+=1440; return d; }
-  const bedAbs = toAbsFromIntoBed(predBedMin) < 0 ? toAbsFromIntoBed(predBedMin)+1440 : toAbsFromIntoBed(predBedMin);
-  const wakeAbs0 = toAbsFromIntoBed(predWakeMin);
-  const finalWakeAbs = wakeAbs0 < bedAbs ? wakeAbs0+1440 : wakeAbs0;
-  const lastMealAbs = 1440 - 120; // 翌日就床2時間前
-  const lastMealM = (intoBedMin - 120 + 1440) % 1440;
-  const sleepEvents = [
-    { absMin: 0,            timeMin: intoBedMin,  label: '就床・服薬',       icon: '🕯️💊', note: '就床と同時に服薬' },
-    { absMin: bedAbs,       timeMin: predBedMin,  label: '予測就寝',         icon: '😴',   note: `平均潜時 ${avgLat}分` },
-    { absMin: finalWakeAbs, timeMin: predWakeMin, label: '予測起床',         icon: '🌅',   note: wakeRange },
-    { absMin: lastMealAbs,  timeMin: lastMealM,   label: '食事タイムリミット', icon: '🍽️',   note: 'これ以降に食事をすると服薬が遅れます' },
+  // 簡易スケジュール（就床時刻を基準に時系列順で並べる）
+  const sched = document.getElementById('tonightSched');
+  sched.innerHTML = '';
+
+  function toAbsFromIntoBed(m) {
+    let diff = m - intoBedMin;
+    if (diff < -30) diff += 1440;
+    return diff;
+  }
+
+  // 起床後のタイムライン（食事タイムリミット・服薬を含む）
+  const intoBedM2 = predBedMin - 60; // 就床 = 予測就寝1時間前（今夜の就床=intoBedMin）
+  const medM = intoBedMin; // 服薬 = 就床時刻
+  const lastMealM = (medM - 120 + 1440) % 1440; // 食事タイムリミット = 服薬2時間前
+
+  const events = [
+    { absMin: 0, timeMin: intoBedMin, label: '就床・服薬', icon: '🕯️💊', note: '就床と同時に服薬' },
+    { absMin: toAbsFromIntoBed(predBedMin), timeMin: predBedMin, label: '予測就寝', icon: '😴', note: `平均潜時 ${avgLat}分` },
+    { absMin: toAbsFromIntoBed(predWakeMin) < toAbsFromIntoBed(predBedMin) ? toAbsFromIntoBed(predWakeMin) + 1440 : toAbsFromIntoBed(predWakeMin), timeMin: predWakeMin, label: '予測起床', icon: '🌅', note: wakeRange },
+    { absMin: toAbsFromIntoBed(predWakeMin) < toAbsFromIntoBed(predBedMin) ? toAbsFromIntoBed(lastMealM) + 1440 : toAbsFromIntoBed(lastMealM) + 1440, timeMin: lastMealM, label: '食事タイムリミット', icon: '🍽️', note: 'これ以降に食事をすると服薬が遅れます' },
   ];
-  try { localStorage.setItem('today-schedule-' + todayKey, JSON.stringify({ date: todayKey, events: sleepEvents })); } catch(e) {}
+
+  // 固定予定を追加
+  tonightFixedEvents.filter(ev => ev.label && ev.timeMin).forEach(ev => {
+    const absM = toAbsFromIntoBed(ev.timeMin);
+    const evEnd = ev.endTimeMin || ev.timeMin + 60;
+    const dur = evEnd - ev.timeMin;
+    const durStr = dur >= 60 ? `${Math.floor(dur/60)}時間${dur%60>0?dur%60+'分':''}` : `${dur}分`;
+    events.push({ absMin: absM < 0 ? absM + 1440 : absM, timeMin: ev.timeMin, label: ev.label, icon: '📌', note: `〜${m2t(evEnd)}（${durStr}）` });
+  });
+
+  events.sort((a, b) => a.absMin - b.absMin);
+
+  // 今日画面用に保存
+  const saveKey = 'today-schedule-' + todayKey;
+  const savePayload = events.map(ev => ({ timeMin: ev.timeMin, absMin: ev.absMin, label: ev.label, icon: ev.icon, note: ev.note || '' }));
+  try { localStorage.setItem(saveKey, JSON.stringify({ date: todayKey, events: savePayload })); } catch(e) {}
+
+  // 就床時刻の実際の日付を基準日にする
+  const baseDate = new Date(now);
+  const wDays = ['日','月','火','水','木','金','土'];
+  let lastDay = -1;
+
+  events.forEach(ev => {
+    const dayOffset = Math.floor((intoBedMin + ev.absMin) / 1440);
+    if (dayOffset !== lastDay) {
+      lastDay = dayOffset;
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + dayOffset);
+      const lbl = document.createElement('div');
+      lbl.className = 'sched-date-label';
+      lbl.textContent = `${d.getMonth()+1}月${d.getDate()}日（${wDays[d.getDay()]}）`;
+      sched.appendChild(lbl);
+    }
+    const item = document.createElement('div');
+    item.className = 'sched-item';
+    item.innerHTML = `
+      <div class="sched-icon" style="background:var(--surface2);font-size:13px">${ev.icon}</div>
+      <div style="flex:1">
+        <div class="sched-time">${m2t(ev.timeMin)}</div>
+        <div class="sched-label">${ev.label}</div>
+        ${ev.note ? `<div class="sched-note">${ev.note}</div>` : ''}
+      </div>`;
+    sched.appendChild(item);
+  });
 }
 
 // ── Modal / Toast / Export / Import ───────────────────
@@ -1578,47 +1444,6 @@ function switchToCalendar(){
   history.pushState('',document.title,window.location.pathname);
 }
 
-// Fixed events modal for today view
-let tdFixedRows = [];
-function openTdFixed() {
-  const shared = loadSharedFixed ? loadSharedFixed() : [];
-  tdFixedRows = shared.map(e=>({...e}));
-  if (!tdFixedRows.length) tdFixedRows.push({ label:'', timeMin: 10*60, endTimeMin: 11*60 });
-  renderTdFixed();
-  document.getElementById('tdFixedModal').classList.add('open');
-}
-function closeTdFixed() { document.getElementById('tdFixedModal').classList.remove('open'); }
-function addTdFixedRow() { tdFixedRows.push({ label:'', timeMin:10*60, endTimeMin:11*60 }); renderTdFixed(); }
-function renderTdFixed() {
-  const list = document.getElementById('tdFixedList'); list.innerHTML='';
-  tdFixedRows.forEach((r,i)=>{
-    const div=document.createElement('div');
-    div.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px';
-    const nameInput=document.createElement('input');
-    nameInput.className='today-manual-name';nameInput.placeholder='予定名';nameInput.value=r.label||'';
-    nameInput.addEventListener('input',()=>tdFixedRows[i].label=nameInput.value);
-    const startSel=document.createElement('input');
-    startSel.type='time';startSel.className='today-manual-time';startSel.step=900;
-    startSel.value=r.timeMin!=null?m2t(r.timeMin):'';
-    startSel.addEventListener('change',()=>tdFixedRows[i].timeMin=t2m(startSel.value));
-    const endSel=document.createElement('input');
-    endSel.type='time';endSel.className='today-manual-time';endSel.step=900;
-    endSel.value=r.endTimeMin!=null?m2t(r.endTimeMin):'';
-    endSel.addEventListener('change',()=>tdFixedRows[i].endTimeMin=t2m(endSel.value));
-    const del=document.createElement('button');del.className='today-manual-del';del.textContent='×';
-    del.addEventListener('click',()=>{tdFixedRows.splice(i,1);renderTdFixed();});
-    div.appendChild(nameInput);div.appendChild(startSel);div.appendChild(endSel);div.appendChild(del);
-    list.appendChild(div);
-  });
-}
-function saveTdFixed() {
-  const valid = tdFixedRows.filter(r=>r.label&&r.timeMin!=null);
-  if (typeof saveSharedFixed === 'function') saveSharedFixed(valid);
-  closeTdFixed();
-  tdUpdateClock();
-}
-document.getElementById('tdFixedModal').addEventListener('click',e=>{ if(e.target===document.getElementById('tdFixedModal'))closeTdFixed(); });
-
 // Manual modal
 function openTdManual(){ tdManualRows=tdLoadManual().map(e=>({...e})); if(!tdManualRows.length)tdManualRows.push({time:'',name:''}); renderTdManual(); document.getElementById('tdManualModal').classList.add('open'); }
 function closeTdManual(){ document.getElementById('tdManualModal').classList.remove('open'); }
@@ -1627,9 +1452,53 @@ function renderTdManual(){
   const list=document.getElementById('tdManualList'); list.innerHTML='';
   tdManualRows.forEach((r,i)=>{
     const div=document.createElement('div'); div.className='today-manual-row';
-    div.innerHTML=`<input class="today-manual-time" type="time" value="${r.time||''}" step="900" onchange="tdManualRows[${i}].time=this.value">
-      <input class="today-manual-name" type="text" placeholder="予定名" value="${r.name||''}" oninput="tdManualRows[${i}].name=this.value">
-      <button class="today-manual-del" onclick="tdManualRows.splice(${i},1);renderTdManual()">×</button>`;
+
+    // 時刻プルダウン
+    const curH = r.time ? parseInt(r.time.split(':')[0]) : -1;
+    const curMn = r.time ? parseInt(r.time.split(':')[1]) : -1;
+    const timeWrap = document.createElement('div');
+    timeWrap.className = 'fixed-time-select';
+    const hSel = document.createElement('select');
+    hSel.className = 'today-manual-time';
+    for(let h=0;h<24;h++){
+      const o=document.createElement('option');
+      o.value=String(h).padStart(2,'0');
+      o.textContent=String(h).padStart(2,'0')+'時';
+      if(h===curH) o.selected=true;
+      hSel.appendChild(o);
+    }
+    const mSel = document.createElement('select');
+    mSel.className = 'today-manual-time';
+    [0,15,30,45].forEach(mn=>{
+      const o=document.createElement('option');
+      o.value=String(mn).padStart(2,'0');
+      o.textContent=String(mn).padStart(2,'0')+'分';
+      if(mn===curMn) o.selected=true;
+      mSel.appendChild(o);
+    });
+    const syncTime = () => { tdManualRows[i].time = `${hSel.value}:${mSel.value}`; };
+    hSel.addEventListener('change', syncTime);
+    mSel.addEventListener('change', syncTime);
+    timeWrap.appendChild(hSel);
+    timeWrap.appendChild(mSel);
+
+    // 予定名入力
+    const nameInput = document.createElement('input');
+    nameInput.className = 'today-manual-name';
+    nameInput.type = 'text';
+    nameInput.placeholder = '予定名';
+    nameInput.value = r.name || '';
+    nameInput.addEventListener('input', () => { tdManualRows[i].name = nameInput.value; });
+
+    // 削除ボタン
+    const delBtn = document.createElement('button');
+    delBtn.className = 'today-manual-del';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => { tdManualRows.splice(i,1); renderTdManual(); });
+
+    div.appendChild(timeWrap);
+    div.appendChild(nameInput);
+    div.appendChild(delBtn);
     list.appendChild(div);
   });
 }
@@ -1646,39 +1515,17 @@ document.getElementById('wentOut').addEventListener('change',function(){ documen
 document.getElementById('mensOn').addEventListener('change',function(){ document.getElementById('mensDetail').style.display=this.checked?'block':'none'; });
 document.getElementById('tdManualModal').addEventListener('click',e=>{ if(e.target===document.getElementById('tdManualModal'))closeTdManual(); });
 
+// ヘッダーに「今日」ボタンを追加
+document.querySelector('.header-actions').insertAdjacentHTML('afterbegin',
+  `<button class="icon-btn" onclick="switchToToday()" title="今日の予定">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    今日
+  </button>`
+);
+
 // ハッシュで自動切り替え
 if(location.hash==='#today') switchToToday();
 window.addEventListener('hashchange',()=>{ if(location.hash==='#today')switchToToday(); else switchToCalendar(); });
-
-  // ── 中途覚醒の計算 ─────────────────────────────────────
-function calcAwakenings(blocks) {
-  if (!blocks || !blocks.length) return { count: 0, totalAwake: 0, avgAwake: 0, gaps: [] };
-
-  // bed時刻でソート（日またぎ対応：0〜5時は +1440 して後ろへ）
-  const sorted = [...blocks]
-    .filter(b => b.bed && b.wake)
-    .sort((a, b) => {
-      const am = t2m(a.bed), bm = t2m(b.bed);
-      return (am < 360 ? am + 1440 : am) - (bm < 360 ? bm + 1440 : bm);
-    });
-
-  const gaps = [];
-  for (let i = 1; i < sorted.length; i++) {
-    const prevWake = t2m(sorted[i - 1].wake);
-    const nextBed  = t2m(sorted[i].bed);
-    const gap = dur(prevWake, nextBed);
-    // 5分〜120分のギャップだけを「中途覚醒」とみなす
-    if (gap >= 5 && gap < 120) gaps.push(gap);
-  }
-
-  const totalAwake = gaps.reduce((s, v) => s + v, 0);
-  return {
-    count:      gaps.length,
-    totalAwake: totalAwake,
-    avgAwake:   gaps.length ? Math.round(totalAwake / gaps.length) : 0,
-    gaps:       gaps,
-  };
-}
 </script>
 </body>
 </html>
