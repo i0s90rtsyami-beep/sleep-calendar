@@ -407,10 +407,19 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
       </div>
       <div class="chart-wrap"><canvas id="weekChart"></canvas></div>
     </div> 
-      <div id="atab-awakening" class="tab-panel">
+     <div id="atab-awakening" class="tab-panel">
   <div class="analysis-grid" id="awakeningAnalysis"></div>
   <div class="chart-wrap" style="margin-top:14px"><canvas id="awakeningChart"></canvas></div>
+
+  <div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)">
+    <div class="section-title" style="margin-bottom:8px">🩸 月経フェーズ別 中途覚醒</div>
+    <div class="analysis-grid" id="awakeningMensAnalysis"></div>
+    <div class="chart-wrap" style="margin-top:12px"><canvas id="mensPhaseAwChart"></canvas></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">
+      ※ 月経データと睡眠データが両方ある日のみ集計されます
     </div>
+  </div>
+</div>
     <div id="atab-irregular" class="tab-panel">
       <div class="analysis-grid" id="irregularAnalysis"></div>
       <div class="chart-wrap" style="margin-top:14px"><canvas id="irregularChart"></canvas></div>
@@ -908,63 +917,177 @@ function switchAnalysisTab(name, btn) {
 }
 
 function updateAwakeningChart() {
+  const allKeys = Object.keys(data).filter(k => data[k].blocks && data[k].blocks.length);
+  const daysWithAw = allKeys.filter(k => subBlocks(data[k].blocks).length > 0);
+  const daysWithoutAw = allKeys.filter(k => subBlocks(data[k].blocks).length === 0 && totalMainMin(data[k].blocks) > 0);
+  const avgMainWithAw = daysWithAw.length ? daysWithAw.reduce((s, k) => s + totalMainMin(data[k].blocks), 0) / daysWithAw.length : null;
+  const avgMainWithoutAw = daysWithoutAw.length ? daysWithoutAw.reduce((s, k) => s + totalMainMin(data[k].blocks), 0) / daysWithoutAw.length : null;
+  const awFreq = allKeys.length ? Math.round(daysWithAw.length / allKeys.length * 100) : 0;
+  const avgAwDur = daysWithAw.length ? daysWithAw.reduce((s, k) => s + totalSubMin(data[k].blocks), 0) / daysWithAw.length : null;
 
-  const allKeys = Object.keys(data).filter(k=>data[k].blocks&&data[k].blocks.length);
+  document.getElementById('awakeningAnalysis').innerHTML = [
+    { l: '中途覚醒のある日', v: `${daysWithAw.length}日`, n: `全体の${awFreq}%` },
+    { l: '覚醒時の浅い眠り平均', v: avgAwDur ? Math.round(avgAwDur) + '分' : '—', n: `${daysWithAw.length}日分` },
+    { l: '覚醒あり日のメイン睡眠', v: avgMainWithAw ? (avgMainWithAw / 60).toFixed(1) + 'h' : '—', n: `${daysWithAw.length}日` },
+    { l: '覚醒なし日のメイン睡眠', v: avgMainWithoutAw ? (avgMainWithoutAw / 60).toFixed(1) + 'h' : '—', n: `${daysWithoutAw.length}日` },
+  ].map(x => `<div class="analysis-card"><div class="analysis-title">${x.l}</div><div class="analysis-val">${x.v}</div><div class="analysis-note">${x.n}</div></div>`).join('');
 
-  const daysWithAw = allKeys.filter(k=>subBlocks(data[k].blocks).length>0);
-
-  const daysWithoutAw = allKeys.filter(k=>subBlocks(data[k].blocks).length===0&&totalMainMin(data[k].blocks)>0);
-
-  const avgMainWithAw = daysWithAw.length ? daysWithAw.reduce((s,k)=>s+totalMainMin(data[k].blocks),0)/daysWithAw.length : null;
-
-  const avgMainWithoutAw = daysWithoutAw.length ? daysWithoutAw.reduce((s,k)=>s+totalMainMin(data[k].blocks),0)/daysWithoutAw.length : null;
-
-  const awFreq = allKeys.length ? Math.round(daysWithAw.length/allKeys.length*100) : 0;
-
-  const avgAwDur = daysWithAw.length ? daysWithAw.reduce((s,k)=>s+totalSubMin(data[k].blocks),0)/daysWithAw.length : null;
-
- 
-
-  document.getElementById('awakeningAnalysis').innerHTML=[
-
-    {l:'中途覚醒のある日',v:`${daysWithAw.length}日`,n:`全体の${awFreq}%`},
-
-    {l:'覚醒時の浅い眠り平均',v:avgAwDur?Math.round(avgAwDur)+'分':'—',n:`${daysWithAw.length}日分`},
-
-    {l:'覚醒あり日のメイン睡眠',v:avgMainWithAw?(avgMainWithAw/60).toFixed(1)+'h':'—',n:`${daysWithAw.length}日`},
-
-    {l:'覚醒なし日のメイン睡眠',v:avgMainWithoutAw?(avgMainWithoutAw/60).toFixed(1)+'h':'—',n:`${daysWithoutAw.length}日`},
-
-  ].map(x=>`<div class="analysis-card"><div class="analysis-title">${x.l}</div><div class="analysis-val">${x.v}</div><div class="analysis-note">${x.n}</div></div>`).join('');
-
- 
-
-  let awChart = Chart.getChart('awakeningChart'); if(awChart) awChart.destroy();
-
+  // 覚醒あり vs なし：メイン睡眠の比較グラフ
+  let awChart = Chart.getChart('awakeningChart');
+  if (awChart) awChart.destroy();
   const ctx = document.getElementById('awakeningChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['中途覚醒あり日\nのメイン睡眠', '中途覚醒なし日\nのメイン睡眠'],
+      datasets: [{
+        label: '平均睡眠(h)',
+        data: [avgMainWithAw ? +(avgMainWithAw / 60).toFixed(1) : null, avgMainWithoutAw ? +(avgMainWithoutAw / 60).toFixed(1) : null],
+        backgroundColor: ['#ED93B1', '#378ADD'],
+        borderColor: ['#D4537E', '#185FA5'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { title: { display: true, text: '睡眠(h)', font: { size: 11 } }, min: 0, max: 12, ticks: { font: { size: 11 } } },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
 
-  new Chart(ctx,{type:'bar',data:{
+  // ── 月経フェーズ別 中途覚醒グラフ ──────────────────
+  const phases = ['menstrual', 'follicular', 'ovulation', 'luteal'];
+  const phaseNames = { menstrual: '生理中', follicular: '卵胞期', ovulation: '排卵期', luteal: '黄体期' };
+  const phaseColors = {
+    menstrual:  { bg: '#F4C0D1', border: '#D4537E' },
+    follicular: { bg: '#B5D4F4', border: '#378ADD' },
+    ovulation:  { bg: '#9FE1CB', border: '#1D9E75' },
+    luteal:     { bg: '#FAC775', border: '#BA7517' },
+  };
 
-    labels:['中途覚醒あり日\nのメイン睡眠','中途覚醒なし日\nのメイン睡眠'],
+  // フェーズごとに：中途覚醒頻度(%)・平均覚醒ブロック数・平均浅い眠り時間を集計
+  const phaseStats = {};
+  phases.forEach(p => { phaseStats[p] = { total: 0, awDays: 0, awBlockSum: 0, awDurSum: 0 }; });
 
-    datasets:[{
+  allKeys.forEach(k => {
+    const phase = getMenstrualPhase(k);
+    if (!phase) return;
+    const blocks = data[k].blocks || [];
+    const sub = subBlocks(blocks);
+    phaseStats[phase].total++;
+    if (sub.length > 0) {
+      phaseStats[phase].awDays++;
+      phaseStats[phase].awBlockSum += sub.length;           // ブロック数（回数の代理）
+      phaseStats[phase].awDurSum += totalSubMin(blocks);    // 浅い眠りの合計分
+    }
+  });
 
-      label:'平均睡眠(h)',
+  // サマリーカード（覚醒頻度が一番高いフェーズを強調）
+  const freqByPhase = phases.map(p => {
+    const s = phaseStats[p];
+    return s.total > 0 ? Math.round(s.awDays / s.total * 100) : null;
+  });
+  const maxFreq = Math.max(...freqByPhase.filter(v => v !== null));
+  const maxPhase = phases[freqByPhase.indexOf(maxFreq)];
 
-      data:[avgMainWithAw?+(avgMainWithAw/60).toFixed(1):null, avgMainWithoutAw?+(avgMainWithoutAw/60).toFixed(1):null],
+  const mensAwEl = document.getElementById('awakeningMensAnalysis');
+  if (!phases.some(p => phaseStats[p].total > 0)) {
+    mensAwEl.innerHTML = `<div style="grid-column:1/-1;font-size:12px;color:var(--text3);padding:8px 0">月経データが記録されると表示されます</div>`;
+  } else {
+    mensAwEl.innerHTML = phases.map(p => {
+      const s = phaseStats[p];
+      const freq = s.total > 0 ? Math.round(s.awDays / s.total * 100) : null;
+      const avgBlocks = s.awDays > 0 ? (s.awBlockSum / s.awDays).toFixed(1) : null;
+      const isMax = p === maxPhase && freq !== null;
+      return `<div class="analysis-card" style="${isMax ? 'border:1px solid ' + phaseColors[p].border + ';background:' + phaseColors[p].bg + '20' : ''}">
+        <div class="analysis-title">${phaseNames[p]}</div>
+        <div class="analysis-val" style="color:${phaseColors[p].border}">${freq !== null ? freq + '%' : '—'}</div>
+        <div class="analysis-note">${s.total}日中 ${s.awDays}日 覚醒${avgBlocks ? ' ／ 平均' + avgBlocks + '回' : ''}</div>
+      </div>`;
+    }).join('');
+  }
 
-      backgroundColor:['#ED93B1','#378ADD'],
+  // 月経フェーズ別 棒グラフ（覚醒頻度 % ／ 左軸、平均浅い眠り分 ／ 右軸）
+  const freqData = phases.map(p => {
+    const s = phaseStats[p];
+    return s.total > 0 ? +(s.awDays / s.total * 100).toFixed(1) : null;
+  });
+  const avgDurData = phases.map(p => {
+    const s = phaseStats[p];
+    return s.awDays > 0 ? +(s.awDurSum / s.awDays).toFixed(0) : null;
+  });
 
-      borderColor:['#D4537E','#185FA5'],
-
-      borderWidth:1
-
-    }]
-
-  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-
-    scales:{y:{title:{display:true,text:'睡眠(h)',font:{size:11}},min:0,max:12,ticks:{font:{size:11}}},x:{ticks:{font:{size:11}}}}}});
-
+  let mpChart = Chart.getChart('mensPhaseAwChart');
+  if (mpChart) mpChart.destroy();
+  const ctx2 = document.getElementById('mensPhaseAwChart').getContext('2d');
+  new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: phases.map(p => phaseNames[p]),
+      datasets: [
+        {
+          label: '中途覚醒頻度(%)',
+          data: freqData,
+          backgroundColor: phases.map(p => phaseColors[p].bg),
+          borderColor: phases.map(p => phaseColors[p].border),
+          borderWidth: 1.5,
+          yAxisID: 'y',
+          order: 2,
+        },
+        {
+          label: '平均浅い眠り(分)',
+          data: avgDurData,
+          type: 'line',
+          borderColor: '#534AB7',
+          backgroundColor: 'transparent',
+          borderDash: [4, 3],
+          pointRadius: 5,
+          pointBackgroundColor: '#534AB7',
+          borderWidth: 1.5,
+          yAxisID: 'y2',
+          spanGaps: true,
+          order: 1,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { font: { size: 11 }, boxWidth: 12, padding: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.dataset.yAxisID === 'y') return `覚醒頻度: ${ctx.raw ?? '—'}%`;
+              return `平均浅い眠り: ${ctx.raw ?? '—'}分`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          title: { display: true, text: '中途覚醒頻度(%)', font: { size: 11 } },
+          min: 0, max: 100,
+          ticks: { font: { size: 11 }, callback: v => v + '%' }
+        },
+        y2: {
+          title: { display: true, text: '平均浅い眠り(分)', font: { size: 11 } },
+          position: 'right',
+          min: 0,
+          ticks: { font: { size: 11 }, callback: v => v + '分' },
+          grid: { drawOnChartArea: false }
+        },
+        x: { ticks: { font: { size: 12 } } }
+      }
+    }
+  });
 }
 
 function updateIrregularChart() {
