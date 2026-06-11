@@ -392,10 +392,11 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div class="panel">
     <div class="panel-title">分析</div>
     <div class="tabs" id="analysisTabs">
-      <button class="tab active" onclick="switchAnalysisTab('weekly',this)">週間睡眠</button>
-      <button class="tab" onclick="switchAnalysisTab('irregular',this)">寝落ち比較</button>
-      <button class="tab" onclick="switchAnalysisTab('outing',this)">外出影響</button>
-      <button class="tab" onclick="switchAnalysisTab('menstrual',this)">月経と睡眠</button>
+<button class="tab active" onclick="switchAnalysisTab('weekly',this)">週間睡眠</button>
+<button class="tab" onclick="switchAnalysisTab('awakening',this)">中途覚醒</button>
+<button class="tab" onclick="switchAnalysisTab('irregular',this)">寝落ち比較</button>
+<button class="tab" onclick="switchAnalysisTab('outing',this)">外出影響</button>
+<button class="tab" onclick="switchAnalysisTab('menstrual',this)">月経と睡眠</button>
     </div>
     <div id="atab-weekly" class="tab-panel active">
       <div class="legend">
@@ -405,6 +406,10 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
         <span class="leg-item"><span class="leg-sq" style="background:#1D9E75;width:18px;height:3px;border-radius:0"></span>実際の起床</span>
       </div>
       <div class="chart-wrap"><canvas id="weekChart"></canvas></div>
+    </div> 
+      <div id="atab-awakening" class="tab-panel">
+  <div class="analysis-grid" id="awakeningAnalysis"></div>
+  <div class="chart-wrap" style="margin-top:14px"><canvas id="awakeningChart"></canvas></div>
     </div>
     <div id="atab-irregular" class="tab-panel">
       <div class="analysis-grid" id="irregularAnalysis"></div>
@@ -457,6 +462,7 @@ textarea.import-area:focus { outline: none; border-color: var(--purple); }
   <div id="modelStatusDiv" class="model-status none" style="margin-top:10px">モデル未読み込み</div>
   <div class="modal-actions">
     <button class="modal-btn" onclick="closeModal('modelModal')">閉じる</button>
+  </div>
   </div>
 </div>
 
