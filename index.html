@@ -1436,58 +1436,6 @@ function renderTdManual(){
   const list=document.getElementById('tdManualList'); list.innerHTML='';
   tdManualRows.forEach((r,i)=>{
     const div=document.createElement('div'); div.className='today-manual-row';
- 
-    // 時刻プルダウン
-    const curH = r.time ? parseInt(r.time.split(':')[0]) : -1;
-    const curMn = r.time ? parseInt(r.time.split(':')[1]) : -1;
-    const timeWrap = document.createElement('div');
-    timeWrap.className = 'fixed-time-select';
-    const hSel = document.createElement('select');
-    hSel.className = 'today-manual-time';
-    for(let h=0;h<24;h++){
-      const o=document.createElement('option');
-      o.value=String(h).padStart(2,'0');
-      o.textContent=String(h).padStart(2,'0')+'時';
-      if(h===curH) o.selected=true;
-      hSel.appendChild(o);
-    }
-    const mSel = document.createElement('select');
-    mSel.className = 'today-manual-time';
-    [0,15,30,45].forEach(mn=>{
-      const o=document.createElement('option');
-      o.value=String(mn).padStart(2,'0');
-      o.textContent=String(mn).padStart(2,'0')+'分';
-      if(mn===curMn) o.selected=true;
-      mSel.appendChild(o);
-    });
-    const syncTime = () => { tdManualRows[i].time = `${hSel.value}:${mSel.value}`; };
-    hSel.addEventListener('change', syncTime);
-    mSel.addEventListener('change', syncTime);
-    timeWrap.appendChild(hSel);
-    timeWrap.appendChild(mSel);
- 
-    // 予定名入力
-    const nameInput = document.createElement('input');
-    nameInput.className = 'today-manual-name';
-    nameInput.type = 'text';
-    nameInput.placeholder = '予定名';
-    nameInput.value = r.name || '';
-    nameInput.addEventListener('input', () => { tdManualRows[i].name = nameInput.value; });
- 
-    // 削除ボタン
-    const delBtn = document.createElement('button');
-    delBtn.className = 'today-manual-del';
-    delBtn.textContent = '×';
-    delBtn.addEventListener('click', () => { tdManualRows.splice(i,1); renderTdManual(); });
- 
-    div.appendChild(timeWrap);
-    div.appendChild(nameInput);
-    div.appendChild(delBtn);
-    list.appendChild(div);
-  });
-}
-function saveTdManual(){ tdSaveManual(tdManualRows.filter(r=>r.time&&r.name)); closeTdManual(); tdUpdateClock(); }tdManualRows.forEach((r,i)=>{
-    const div=document.createElement('div'); div.className='today-manual-row';
     div.innerHTML=`<input class="today-manual-time" type="time" value="${r.time||''}" step="900" onchange="tdManualRows[${i}].time=this.value">
       <input class="today-manual-name" type="text" placeholder="予定名" value="${r.name||''}" oninput="tdManualRows[${i}].name=this.value">
       <button class="today-manual-del" onclick="tdManualRows.splice(${i},1);renderTdManual()">×</button>`;
