@@ -899,11 +899,72 @@ function switchAnalysisTab(name, btn) {
   activeATab=name;
   document.querySelectorAll('#analysisTabs .tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
-  ['weekly','irregular','outing','menstrual'].forEach(n=>document.getElementById('atab-'+n).classList.remove('active'));
+  ['weekly','awakening','irregular','outing','menstrual'].forEach(n=>document.getElementById('atab-'+n).classList.remove('active'));
   document.getElementById('atab-'+name).classList.add('active');
+  if(name==='awakening') updateAwakeningChart();
   if(name==='irregular') updateIrregularChart();
   if(name==='outing') updateOutingChart();
   if(name==='menstrual') updateMenstrualChart();
+}
+
+function updateAwakeningChart() {
+
+  const allKeys = Object.keys(data).filter(k=>data[k].blocks&&data[k].blocks.length);
+
+  const daysWithAw = allKeys.filter(k=>subBlocks(data[k].blocks).length>0);
+
+  const daysWithoutAw = allKeys.filter(k=>subBlocks(data[k].blocks).length===0&&totalMainMin(data[k].blocks)>0);
+
+  const avgMainWithAw = daysWithAw.length ? daysWithAw.reduce((s,k)=>s+totalMainMin(data[k].blocks),0)/daysWithAw.length : null;
+
+  const avgMainWithoutAw = daysWithoutAw.length ? daysWithoutAw.reduce((s,k)=>s+totalMainMin(data[k].blocks),0)/daysWithoutAw.length : null;
+
+  const awFreq = allKeys.length ? Math.round(daysWithAw.length/allKeys.length*100) : 0;
+
+  const avgAwDur = daysWithAw.length ? daysWithAw.reduce((s,k)=>s+totalSubMin(data[k].blocks),0)/daysWithAw.length : null;
+
+ 
+
+  document.getElementById('awakeningAnalysis').innerHTML=[
+
+    {l:'中途覚醒のある日',v:`${daysWithAw.length}日`,n:`全体の${awFreq}%`},
+
+    {l:'覚醒時の浅い眠り平均',v:avgAwDur?Math.round(avgAwDur)+'分':'—',n:`${daysWithAw.length}日分`},
+
+    {l:'覚醒あり日のメイン睡眠',v:avgMainWithAw?(avgMainWithAw/60).toFixed(1)+'h':'—',n:`${daysWithAw.length}日`},
+
+    {l:'覚醒なし日のメイン睡眠',v:avgMainWithoutAw?(avgMainWithoutAw/60).toFixed(1)+'h':'—',n:`${daysWithoutAw.length}日`},
+
+  ].map(x=>`<div class="analysis-card"><div class="analysis-title">${x.l}</div><div class="analysis-val">${x.v}</div><div class="analysis-note">${x.n}</div></div>`).join('');
+
+ 
+
+  let awChart = Chart.getChart('awakeningChart'); if(awChart) awChart.destroy();
+
+  const ctx = document.getElementById('awakeningChart').getContext('2d');
+
+  new Chart(ctx,{type:'bar',data:{
+
+    labels:['中途覚醒あり日\nのメイン睡眠','中途覚醒なし日\nのメイン睡眠'],
+
+    datasets:[{
+
+      label:'平均睡眠(h)',
+
+      data:[avgMainWithAw?+(avgMainWithAw/60).toFixed(1):null, avgMainWithoutAw?+(avgMainWithoutAw/60).toFixed(1):null],
+
+      backgroundColor:['#ED93B1','#378ADD'],
+
+      borderColor:['#D4537E','#185FA5'],
+
+      borderWidth:1
+
+    }]
+
+  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+
+    scales:{y:{title:{display:true,text:'睡眠(h)',font:{size:11}},min:0,max:12,ticks:{font:{size:11}}},x:{ticks:{font:{size:11}}}}}});
+
 }
 
 function updateIrregularChart() {
