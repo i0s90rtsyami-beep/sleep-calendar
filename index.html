@@ -1200,6 +1200,13 @@ function updateTonightPrediction() {
   let wakeSub='（'+wakeRange+'）';
   if(statResult)wakeSub+=' ／ 就寝'+m2t(predBedMin)+' ＋ '+(statResult.sleepDuration/60).toFixed(1)+'h';
   document.getElementById('tonightWakeSub').textContent=wakeSub;
+  // 今日欄への連携: 予測就床・就寝・起床をlocalStorageに保存
+  const sleepEvents=[
+    {absMin:0,timeMin:intoBedMin,label:'就床・服薬',icon:'🕯️💊',note:'就床と同時に服薬'},
+    {absMin:0,timeMin:predBedMin,label:'予測就寝',icon:'😴',note:'平均潜時 '+avgLat+'分'},
+    {absMin:0,timeMin:predWakeMin,label:'予測起床',icon:'🌅',note:wakeRange},
+  ];
+  try{localStorage.setItem('today-schedule-'+todayKey,JSON.stringify({date:todayKey,events:sleepEvents}));}catch(e){}
   const tomorrowWarn=new Date(now); tomorrowWarn.setDate(tomorrowWarn.getDate()+1);
   const tomorrowWarnKey=tomorrowWarn.getFullYear()+'-'+pad(tomorrowWarn.getMonth()+1)+'-'+pad(tomorrowWarn.getDate());
   renderSleepWarning('sleepWarningBox', tomorrowWarnKey);
@@ -1235,9 +1242,20 @@ function tdLoadSleepEvents(){
   return events.filter(ev=>{const k=ev.timeMin+'-'+ev.label;if(seen.has(k))return false;seen.add(k);return true;}).sort((a,b)=>a.absMin-b.absMin);
 }
 
+function tdLoadSavedSchedule(){
+  const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
+  for(const dateKey of[tdTodayKey(),tdYesterdayKey()]){
+    const raw=localStorage.getItem('today-schedule-'+dateKey); if(!raw)continue;
+    try{const saved=JSON.parse(raw);if(!saved.events||!saved.events.length)continue;
+    return saved.events.map(ev=>{let absMin=ev.timeMin;if(absMin<nowMin-120)absMin+=1440;return{...ev,absMin};}).sort((a,b)=>a.absMin-b.absMin);}catch(e){}
+  }
+  return null;
+}
+
 function tdBuildEvents(){
   const now=new Date(); const nowMin=now.getHours()*60+now.getMinutes();
-  const base=tdLoadSleepEvents();
+  const saved=tdLoadSavedSchedule();
+  const base=saved||tdLoadSleepEvents();
   const manual=tdLoadManual().filter(e=>e.time&&e.name).map(e=>({absMin:t2m(e.time)<nowMin-120?t2m(e.time)+1440:t2m(e.time),timeMin:t2m(e.time),label:e.name,icon:'📌',note:'',manual:true}));
   return[...base,...manual].sort((a,b)=>a.absMin-b.absMin);
 }
